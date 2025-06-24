@@ -38,27 +38,30 @@ class LLMConfig:
         self,
         api_key: str | None = None,
         model: str | None = None,
-        base_url: str | None = None,
+        # model="qwen-plus",
+
+        # base_url: str | None = None, # None 时 openai 库默认调用 openai base url
+        base_url="https://vip.apiyi.com/v1",
+        # base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+
         small_model: str | None = None,
+        # small_model = "qwen-turbo",
     ):
         """
         Initialize the LLMConfig with the provided parameters.
 
         Args:
-                api_key (str): The authentication key for accessing the LLM API.
-                                                This is required for making authorized requests.
-
-                model (str, optional): The specific LLM model to use for generating responses.
-                                                                Defaults to "gpt-4.1-mini".
-
+                api_key (str): The authentication key for accessing the LLM API. This is required for making authorized requests.
+                model (str, optional): The specific LLM model to use for generating responses. 
+                    Defaults to "gpt-4.1-mini".
                 base_url (str, optional): The base URL of the LLM API service.
-                                                                        Defaults to "https://api.openai.com", which is OpenAI's standard API endpoint.
-                                                                        This can be changed if using a different provider or a custom endpoint.
-
+                    Defaults to "https://api.openai.com", which is OpenAI's standard API endpoint.
+                    This can be changed if using a different provider or a custom endpoint.
                 small_model (str, optional): The specific LLM model to use for generating responses of simpler prompts.
-                                                                Defaults to "gpt-4.1-nano".
+                    Defaults to "gpt-4.1-nano".
         """
         self.base_url = base_url
         self.api_key = api_key

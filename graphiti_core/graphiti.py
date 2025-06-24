@@ -200,7 +200,6 @@ class Graphiti:
     async def build_indices_and_constraints(self, delete_existing: bool = False):
         """
         Build indices and constraints in the Neo4j database.
-
         This method sets up the necessary indices and constraints in the Neo4j database
         to optimize query performance and ensure data integrity for the knowledge graph.
 
@@ -209,7 +208,6 @@ class Graphiti:
         self
         delete_existing : bool, optional
             Whether to clear existing indices before creating new ones.
-
 
         Returns
         -------

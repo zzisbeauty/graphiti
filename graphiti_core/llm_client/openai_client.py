@@ -31,7 +31,11 @@ from .errors import RateLimitError, RefusalError
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = 'gpt-4.1-mini'
+# DEFAULT_MODEL = 'qwen-plus'
+
 DEFAULT_SMALL_MODEL = 'gpt-4.1-nano'
+# DEFAULT_SMALL_MODEL = 'qwen-turbo'
+
 
 
 class OpenAIClient(LLMClient):

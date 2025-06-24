@@ -32,9 +32,7 @@ logger = logging.getLogger(__name__)
 async def build_indices_and_constraints(driver: GraphDriver, delete_existing: bool = False):
     if delete_existing:
         records, _, _ = await driver.execute_query(
-            """
-        SHOW INDEXES YIELD name
-        """,
+            """SHOW INDEXES YIELD name""",
             database_=DEFAULT_DATABASE,
         )
         index_names = [record['name'] for record in records]
@@ -49,9 +47,7 @@ async def build_indices_and_constraints(driver: GraphDriver, delete_existing: bo
             ]
         )
     range_indices: list[LiteralString] = get_range_indices(driver.provider)
-
     fulltext_indices: list[LiteralString] = get_fulltext_indices(driver.provider)
-
     index_queries: list[LiteralString] = range_indices + fulltext_indices
 
     await semaphore_gather(
@@ -92,7 +88,6 @@ async def retrieve_episodes(
 ) -> list[EpisodicNode]:
     """
     Retrieve the last n episodic nodes from the graph.
-
     Args:
         driver (Driver): The Neo4j driver instance.
         reference_time (datetime): The reference time to filter episodes. Only episodes with a valid_at timestamp
@@ -104,15 +99,11 @@ async def retrieve_episodes(
     Returns:
         list[EpisodicNode]: A list of EpisodicNode objects representing the retrieved episodes.
     """
-    group_id_filter: LiteralString = (
-        '\nAND e.group_id IN $group_ids' if group_ids and len(group_ids) > 0 else ''
-    )
+    group_id_filter: LiteralString = ('\nAND e.group_id IN $group_ids' if group_ids and len(group_ids) > 0 else '')
     source_filter: LiteralString = '\nAND e.source = $source' if source is not None else ''
 
     query: LiteralString = (
-        """
-                                MATCH (e:Episodic) WHERE e.valid_at <= $reference_time
-                                """
+        """MATCH (e:Episodic) WHERE e.valid_at <= $reference_time"""
         + group_id_filter
         + source_filter
         + """
