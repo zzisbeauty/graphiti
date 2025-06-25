@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+
 import logging
 from datetime import datetime
 from time import time
@@ -106,9 +107,7 @@ class Graphiti:
     ):
         """
         Initialize a Graphiti instance.
-
-        This constructor sets up a connection to the Neo4j database and initializes
-        the LLM client for natural language processing tasks.
+        This constructor sets up a connection to the Neo4j database and initializes the LLM client for natural language processing tasks.
 
         Parameters
         ----------
@@ -129,16 +128,13 @@ class Graphiti:
         Notes
         -----
         This method establishes a connection to the Neo4j database using the provided
-        credentials. It also sets up the LLM client, either using the provided client
-        or by creating a default OpenAIClient.
+        credentials. It also sets up the LLM client, either using the provided client or by creating a default OpenAIClient.
 
         The default database name is set to 'neo4j'. If a different database name
-        is required, it should be specified in the URI or set separately after
-        initialization.
+        is required, it should be specified in the URI or set separately after initialization.
 
         The OpenAI API key is expected to be set in the environment variables.
-        Make sure to set the OPENAI_API_KEY environment variable before initializing
-        Graphiti if you're using the default OpenAIClient.
+        Make sure to set the OPENAI_API_KEY environment variable before initializing Graphiti if you're using the default OpenAIClient.
         """
 
         self.driver = graph_driver if graph_driver else Neo4jDriver(uri, user, password)
@@ -164,6 +160,7 @@ class Graphiti:
             embedder=self.embedder,
             cross_encoder=self.cross_encoder,
         )
+
 
     async def close(self):
         """
@@ -329,6 +326,8 @@ class Graphiti:
                 return {"message": "Episode processing started"}
         """
         try:
+
+
             start = time()
             now = utc_now()
 
@@ -434,6 +433,7 @@ class Graphiti:
                 )
             end = time()
             logger.info(f'Completed add_episode in {(end - start) * 1000} ms')
+
 
             return AddEpisodeResults(episode=episode, nodes=nodes, edges=entity_edges)
 

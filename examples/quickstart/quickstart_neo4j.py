@@ -24,6 +24,14 @@ from logging import INFO
 from dotenv import load_dotenv
 
 from graphiti_core import Graphiti
+
+import inspect
+import types
+# print(inspect.iscoroutinefunction(Graphiti))
+print("Has custom __new__ :", Graphiti.__new__ is not object.__new__)
+print("Metaclass __call__ :", type(Graphiti).__call__ is not type.__call__)
+
+
 from graphiti_core.nodes import EpisodeType
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
@@ -43,6 +51,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+# llm api
+# export OPENAI_API_KEY=
 
 # Neo4j connection parameters
 # Make sure Neo4j Desktop is running with a local DBMS started
@@ -67,6 +78,7 @@ async def main():
 
     # Initialize Graphiti with Neo4j connection
     graphiti = Graphiti(neo4j_uri, neo4j_user, neo4j_password)
+    print(type(graphiti)) 
 
     try:
         # Initialize the graph database with graphiti's indices. This only needs to be done once.
@@ -240,3 +252,15 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
+
+# import inspect, asyncio
+
+# async def main():
+#     obj = Graphiti(neo4j_uri, neo4j_user, neo4j_password)
+#     print(type(obj))                # ① 看看拿到的到底是什么
+#     print(inspect.isawaitable(obj)) # ② True → 必须 await
+#     await obj                       # ③ 真正执行初始化
+#     print("ready:", obj)
+
+# asyncio.run(main())

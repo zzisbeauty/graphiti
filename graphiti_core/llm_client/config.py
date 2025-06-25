@@ -36,12 +36,15 @@ class LLMConfig:
 
     def __init__(
         self,
-        api_key: str | None = None,
+
+        # api_key: str | None = None,
+        api_key="sk-wuTITomWJ5hVYsVb304d3f94Ec144e3bAa5eCc11Ff6aA0E9",
+
         model: str | None = None,
         # model="qwen-plus",
 
         # base_url: str | None = None, # None 时 openai 库默认调用 openai base url
-        base_url="https://vip.apiyi.com/v1",
+        base_url="https://vip.apiyi.com/v1/",
         # base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 
         temperature: float = DEFAULT_TEMPERATURE,

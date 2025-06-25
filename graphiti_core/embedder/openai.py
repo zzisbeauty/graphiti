@@ -22,19 +22,22 @@ from openai.types import EmbeddingModel
 from .client import EmbedderClient, EmbedderConfig
 
 DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
-# DEFAULT_EMBEDDING_MODEL = 'text-embedding-v1'
 
 
 class OpenAIEmbedderConfig(EmbedderConfig):
-    embedding_model: EmbeddingModel | str = DEFAULT_EMBEDDING_MODEL
-    api_key: str | None = None
-    base_url: str | None = None
+    # embedding_model: EmbeddingModel | str = DEFAULT_EMBEDDING_MODEL
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL
+
+    # api_key: str | None = None
+    api_key: str = "sk-wuTITomWJ5hVYsVb304d3f94Ec144e3bAa5eCc11Ff6aA0E9"
+
+    # base_url: str | None = None
+    base_url : str = "https://vip.apiyi.com/v1/"
 
 
 class OpenAIEmbedder(EmbedderClient):
     """
     OpenAI Embedder Client
-
     This client supports both AsyncOpenAI and AsyncAzureOpenAI clients.
     """
 
