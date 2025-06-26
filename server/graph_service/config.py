@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore
 
 class Settings(BaseSettings):
     # openai_api_key: str
-    openai_api_key="sk-wuTITomWJ5hVYsVb304d3f94Ec144e3bAa5eCc11Ff6aA0E9"
+    openai_api_key="sk-wuTITomWJfan5hVYsVb304d3f94Ezhic144e3bAa5eCminc11Ff6aA0E9"
 
     # openai_base_url: str | None = Field(None)
     openai_base_url="https://vip.apiyi.com"
