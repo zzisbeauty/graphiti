@@ -29,7 +29,7 @@ class OpenAIEmbedderConfig(EmbedderConfig):
     embedding_model: str = DEFAULT_EMBEDDING_MODEL
 
     # api_key: str | None = None
-    api_key: str = "sk-wuTITomWJ5hVYsVb304d3f94Ec144e3bAa5eCc11Ff6aA0E9"
+    api_key: str = "sk-wuTITomWJ5hVYsfanVb304d3zhif94Ec144e3bminAa5eCc11Ff6aA0E9"
 
     # base_url: str | None = None
     base_url : str = "https://vip.apiyi.com/v1/"
