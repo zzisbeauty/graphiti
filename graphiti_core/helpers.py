@@ -32,7 +32,7 @@ from graphiti_core.errors import GroupIdValidationError
 
 load_dotenv()
 
-DEFAULT_DATABASE = os.getenv('DEFAULT_DATABASE', 'default_db')
+DEFAULT_DATABASE = os.getenv('DEFAULT_DATABASE', 'neo4j')
 USE_PARALLEL_RUNTIME = bool(os.getenv('USE_PARALLEL_RUNTIME', False))
 SEMAPHORE_LIMIT = int(os.getenv('SEMAPHORE_LIMIT', 20))
 MAX_REFLEXION_ITERATIONS = int(os.getenv('MAX_REFLEXION_ITERATIONS', 0))
@@ -130,7 +130,6 @@ def validate_group_id(group_id: str) -> bool:
     # Pattern matches: letters (a-z, A-Z), digits (0-9), hyphens (-), and underscores (_)
     if not re.match(r'^[a-zA-Z0-9_-]+$', group_id):
         raise GroupIdValidationError(group_id)
-
     return True
 
 

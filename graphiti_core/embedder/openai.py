@@ -1,24 +1,6 @@
-"""
-Copyright 2024, Zep Software, Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
 from collections.abc import Iterable
-
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from openai.types import EmbeddingModel
-
 from .client import EmbedderClient, EmbedderConfig
 
 DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
@@ -27,20 +9,13 @@ DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
 class OpenAIEmbedderConfig(EmbedderConfig):
     # embedding_model: EmbeddingModel | str = DEFAULT_EMBEDDING_MODEL
     embedding_model: str = DEFAULT_EMBEDDING_MODEL
-
-    # api_key: str | None = None
-    api_key: str = "sk-wuTITomWJ5hVYsfanVb304d3zhif94Ec144e3bminAa5eCc11Ff6aA0E9"
-
+    api_key: str | None = None
     # base_url: str | None = None
     base_url : str = "https://vip.apiyi.com/v1/"
+    # base_url : str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 
 class OpenAIEmbedder(EmbedderClient):
-    """
-    OpenAI Embedder Client
-    This client supports both AsyncOpenAI and AsyncAzureOpenAI clients.
-    """
-
     def __init__(
         self,
         config: OpenAIEmbedderConfig | None = None,

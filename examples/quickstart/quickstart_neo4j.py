@@ -1,64 +1,23 @@
-"""
-Copyright 2025, Zep Software, Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-import asyncio
-import json
-import logging
-import os
+import os, sys, logging, json, asyncio, types, inspect
 from datetime import datetime, timezone
 from logging import INFO
-
 from dotenv import load_dotenv
-
 from graphiti_core import Graphiti
-
-import inspect
-import types
-# print(inspect.iscoroutinefunction(Graphiti))
-print("Has custom __new__ :", Graphiti.__new__ is not object.__new__)
-print("Metaclass __call__ :", type(Graphiti).__call__ is not type.__call__)
-
-
-from graphiti_core.nodes import EpisodeType
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 
-#################################################
-# CONFIGURATION
-#################################################
-# Set up logging and environment variables for
-# connecting to Neo4j database
-#################################################
+sys.path.append(os.getcwd())
+
+# print(inspect.iscoroutinefunction(Graphiti))
+# print("Has custom __new__ :", Graphiti.__new__ is not object.__new__)
+# print("Metaclass __call__ :", type(Graphiti).__call__ is not type.__call__)
 
 # Configure logging
-logging.basicConfig(
-    level=INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-)
+logging.basicConfig(level=INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S',)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv('./.env')  # or export OPENAI_API_KEY=
 
-# llm api
-# export OPENAI_API_KEY=
-
-# Neo4j connection parameters
-# Make sure Neo4j Desktop is running with a local DBMS started
-# neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
-# neo4j_uri = os.environ.get('NEO4J_URI', 'neo4j://localhost:7687')
+# Neo4j connection parameters； running with a local DBMS started
 neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://neo4j:7687')
 neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
 neo4j_password = os.environ.get('NEO4J_PASSWORD', 'aa1230.aa')
@@ -68,65 +27,15 @@ if not neo4j_uri or not neo4j_user or not neo4j_password:
 
 
 async def main():
-    #################################################
-    # INITIALIZATION
-    #################################################
-    # Connect to Neo4j and set up Graphiti indices
-    # This is required before using other Graphiti
-    # functionality
-    #################################################
-
-    # Initialize Graphiti with Neo4j connection
+    # INITIALIZATION： Connect to Neo4j and set up Graphiti indices
     graphiti = Graphiti(neo4j_uri, neo4j_user, neo4j_password)
-    print(type(graphiti)) 
-
     try:
         # Initialize the graph database with graphiti's indices. This only needs to be done once.
         await graphiti.build_indices_and_constraints()
 
-        #################################################
-        # ADDING EPISODES
-        #################################################
-        # Episodes are the primary units of information in Graphiti. 
+        # ADDING EPISODES：Episodes are the primary units of information in Graphiti. 
         # They can be text or structured JSON and are automatically processed to extract entities and relationships.
-        #################################################
-
-        # Example: Add Episodes
-        # Episodes list containing both text and JSON episodes
-        episodes = [
-            {
-                'content': 'Kamala Harris is the Attorney General of California. She was previously '
-                'the district attorney for San Francisco.',
-                'type': EpisodeType.text,
-                'description': 'podcast transcript',
-            },
-            {
-                'content': 'As AG, Harris was in office from January 3, 2011 – January 3, 2017',
-                'type': EpisodeType.text,
-                'description': 'podcast transcript',
-            },
-            {
-                'content': {
-                    'name': 'Gavin Newsom',
-                    'position': 'Governor',
-                    'state': 'California',
-                    'previous_role': 'Lieutenant Governor',
-                    'previous_location': 'San Francisco',
-                },
-                'type': EpisodeType.json,
-                'description': 'podcast metadata',
-            },
-            {
-                'content': {
-                    'name': 'Gavin Newsom',
-                    'position': 'Governor',
-                    'term_start': 'January 7, 2019',
-                    'term_end': 'Present',
-                },
-                'type': EpisodeType.json,
-                'description': 'podcast metadata',
-            },
-        ]
+        from usecase.data.demo_episodes import episodes
 
         # Add episodes to the graph
         for i, episode in enumerate(episodes):

@@ -1,20 +1,3 @@
-"""
-Copyright 2024, Zep Software, Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-
 import logging
 from datetime import datetime
 from time import time
@@ -112,57 +95,9 @@ class Graphiti:
         graph_driver: GraphDriver | None = None,
         max_coroutines: int | None = None,
     ):
-        """
-        Initialize a Graphiti instance.
-        This constructor sets up a connection to the Neo4j database and initializes the LLM client for natural language processing tasks.
-
-        Parameters
-        ----------
-        uri : str
-            The URI of the Neo4j database.
-        user : str
-            The username for authenticating with the Neo4j database.
-        password : str
-            The password for authenticating with the Neo4j database.
-        llm_client : LLMClient | None, optional
-            An instance of LLMClient for natural language processing tasks.
-            If not provided, a default OpenAIClient will be initialized.
-        embedder : EmbedderClient | None, optional
-            An instance of EmbedderClient for embedding tasks.
-            If not provided, a default OpenAIEmbedder will be initialized.
-        cross_encoder : CrossEncoderClient | None, optional
-            An instance of CrossEncoderClient for reranking tasks.
-            If not provided, a default OpenAIRerankerClient will be initialized.
-        store_raw_episode_content : bool, optional
-            Whether to store the raw content of episodes. Defaults to True.
-        graph_driver : GraphDriver | None, optional
-            An instance of GraphDriver for database operations.
-            If not provided, a default Neo4jDriver will be initialized.
-        max_coroutines : int | None, optional
-            The maximum number of concurrent operations allowed. Overrides SEMAPHORE_LIMIT set in the environment.
-            If not set, the Graphiti default is used.
-
-        Returns
-        -------
-        None
-
-        Notes
-        -----
-        This method establishes a connection to the Neo4j database using the provided
-        credentials. It also sets up the LLM client, either using the provided client or by creating a default OpenAIClient.
-
-        The default database name is set to 'neo4j'. If a different database name
-        is required, it should be specified in the URI or set separately after initialization.
-
-        The OpenAI API key is expected to be set in the environment variables.
-        Make sure to set the OPENAI_API_KEY environment variable before initializing Graphiti if you're using the default OpenAIClient.
-        """
-
         if graph_driver:
             self.driver = graph_driver
         else:
-            if uri is None:
-                raise ValueError('uri must be provided when graph_driver is None')
             self.driver = Neo4jDriver(uri, user, password)
 
         self.database = DEFAULT_DATABASE
@@ -192,7 +127,7 @@ class Graphiti:
         self._capture_initialization_telemetry()
 
     def _capture_initialization_telemetry(self):
-        """Capture telemetry event for Graphiti initialization."""
+        """ Capture telemetry event for Graphiti initialization. """
         try:
             # Detect provider types from class names
             llm_provider = self._get_provider_type(self.llm_client)
@@ -246,10 +181,8 @@ class Graphiti:
     async def close(self):
         """
         Close the connection to the Neo4j database.
-
         This method safely closes the driver connection to the Neo4j database.
-        It should be called when the Graphiti instance is no longer needed or
-        when the application is shutting down.
+        It should be called when the Graphiti instance is no longer needed or when the application is shutting down.
 
         Parameters
         ----------
@@ -261,10 +194,8 @@ class Graphiti:
 
         Notes
         -----
-        It's important to close the driver connection to release system resources
-        and ensure that all pending transactions are completed or rolled back.
-        This method should be called as part of a cleanup process, potentially
-        in a context manager or a shutdown hook.
+        It's important to close the driver connection to release system resources and ensure that all pending transactions are completed or rolled back.
+        This method should be called as part of a cleanup process, potentially in a context manager or a shutdown hook.
 
         Example:
             graphiti = Graphiti(uri, user, password)
@@ -284,8 +215,7 @@ class Graphiti:
         Parameters
         ----------
         self
-        delete_existing : bool, optional
-            Whether to clear existing indices before creating new ones.
+        delete_existing : bool, optional, Whether to clear existing indices before creating new ones.
 
         Returns
         -------
@@ -294,17 +224,13 @@ class Graphiti:
         Notes
         -----
         This method should typically be called once during the initial setup of the
-        knowledge graph or when updating the database schema. It uses the
-        `build_indices_and_constraints` function from the
-        `graphiti_core.utils.maintenance.graph_data_operations` module to perform
-        the actual database operations.
+        knowledge graph or when updating the database schema. It uses the `build_indices_and_constraints` function from the
+        `graphiti_core.utils.maintenance.graph_data_operations` module to perform the actual database operations.
 
-        The specific indices and constraints created depend on the implementation
-        of the `build_indices_and_constraints` function. Refer to that function's
+        The specific indices and constraints created depend on the implementation of the `build_indices_and_constraints` function. Refer to that function's
         documentation for details on the exact database schema modifications.
 
-        Caution: Running this method on a large existing database may take some time
-        and could impact database performance during execution.
+        Caution: Running this method on a large existing database may take some time and could impact database performance during execution.
         """
         await build_indices_and_constraints(self.driver, delete_existing)
 
@@ -317,9 +243,7 @@ class Graphiti:
     ) -> list[EpisodicNode]:
         """
         Retrieve the last n episodic nodes from the graph.
-
-        This method fetches a specified number of the most recent episodic nodes
-        from the graph, relative to the given reference time.
+        This method fetches a specified number of the most recent episodic nodes from the graph, relative to the given reference time.
 
         Parameters
         ----------
@@ -332,13 +256,11 @@ class Graphiti:
 
         Returns
         -------
-        list[EpisodicNode]
-            A list of the most recent EpisodicNode objects.
+        list[EpisodicNode] : A list of the most recent EpisodicNode objects.
 
         Notes
         -----
-        The actual retrieval is performed by the `retrieve_episodes` function
-        from the `graphiti_core.utils` module.
+        The actual retrieval is performed by the `retrieve_episodes` function from the `graphiti_core.utils` module.
         """
         return await retrieve_episodes(self.driver, reference_time, last_n, group_ids, source)
 
@@ -360,9 +282,7 @@ class Graphiti:
     ) -> AddEpisodeResults:
         """
         Process an episode and update the graph.
-
-        This method extracts information from the episode, creates nodes and edges,
-        and updates the graph database accordingly.
+        This method extracts information from the episode, creates nodes and edges, and updates the graph database accordingly.
 
         Parameters
         ----------
@@ -386,8 +306,7 @@ class Graphiti:
             Optional. Dictionary mapping entity type names to their Pydantic model definitions.
         excluded_entity_types : list[str] | None
             Optional. List of entity type names to exclude from the graph. Entities classified
-            into these types will not be added to the graph. Can include 'Entity' to exclude
-            the default entity type.
+            into these types will not be added to the graph. Can include 'Entity' to exclude the default entity type.
         previous_episode_uuids : list[str] | None
             Optional.  list of episode uuids to use as the previous episodes. If this is not provided,
             the most recent episodes by created_at date will be used.
@@ -399,13 +318,11 @@ class Graphiti:
         Notes
         -----
         This method performs several steps including node extraction, edge extraction,
-        deduplication, and database updates. It also handles embedding generation
-        and edge invalidation.
+        deduplication, and database updates. It also handles embedding generation and edge invalidation.
 
         It is recommended to run this method as a background process, such as in a queue.
         It's important that each episode is added sequentially and awaited before adding
-        the next one. For web applications, consider using FastAPI's background tasks
-        or a dedicated task queue like Celery for this purpose.
+        the next one. For web applications, consider using FastAPI's background tasks or a dedicated task queue like Celery for this purpose.
 
         Example using FastAPI background tasks:
             @app.post("/add_episode")
@@ -414,8 +331,6 @@ class Graphiti:
                 return {"message": "Episode processing started"}
         """
         try:
-
-
             start = time()
             now = utc_now()
 
@@ -451,9 +366,7 @@ class Graphiti:
 
             # Create default edge type map
             edge_type_map_default = (
-                {('Entity', 'Entity'): list(edge_types.keys())}
-                if edge_types is not None
-                else {('Entity', 'Entity'): []}
+                {('Entity', 'Entity'): list(edge_types.keys())} if edge_types is not None else {('Entity', 'Entity'): []}
             )
 
             # Extract entities as nodes
@@ -526,7 +439,6 @@ class Graphiti:
                 )
             end = time()
             logger.info(f'Completed add_episode in {(end - start) * 1000} ms')
-
 
             return AddEpisodeResults(episode=episode, nodes=nodes, edges=entity_edges)
 

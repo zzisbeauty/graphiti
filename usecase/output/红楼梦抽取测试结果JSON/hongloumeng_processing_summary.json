@@ -1,0 +1,20 @@
+{
+  "total_chunks_processed": 2,
+  "total_nodes": 20,
+  "total_edges": 19,
+  "processing_time": "2025-07-10T17:12:17.416282+00:00",
+  "chunks": [
+    {
+      "chunk_index": 0,
+      "nodes_count": 10,
+      "edges_count": 11,
+      "episode_uuid": "0450d2e6-c2de-49da-a9b3-80388df5a24e"
+    },
+    {
+      "chunk_index": 1,
+      "nodes_count": 10,
+      "edges_count": 8,
+      "episode_uuid": "34abcdf3-3e07-49d6-a313-1a82eae9c01b"
+    }
+  ]
+}

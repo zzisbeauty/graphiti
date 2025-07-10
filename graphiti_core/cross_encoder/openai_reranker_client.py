@@ -37,19 +37,8 @@ class OpenAIRerankerClient(CrossEncoderClient):
         config: LLMConfig | None = None,
         client: AsyncOpenAI | AsyncAzureOpenAI | OpenAIClient | None = None,
     ):
-        """
-        Initialize the OpenAIRerankerClient with the provided configuration and client.
-
-        This reranker uses the OpenAI API to run a simple boolean classifier prompt concurrently
-        for each passage. Log-probabilities are used to rank the passages.
-
-        Args:
-            config (LLMConfig | None): The configuration for the LLM client, including API key, model, base URL, temperature, and max tokens.
-            client (AsyncOpenAI | AsyncAzureOpenAI | OpenAIClient | None): An optional async client instance to use. If not provided, a new AsyncOpenAI client is created.
-        """
         if config is None:
             config = LLMConfig()
-
         self.config = config
         if client is None:
             self.client = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
