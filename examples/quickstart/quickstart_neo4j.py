@@ -20,7 +20,7 @@ load_dotenv('./.env')  # or export OPENAI_API_KEY=
 # Neo4j connection parameters； running with a local DBMS started
 neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://neo4j:7687')
 neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
-neo4j_password = os.environ.get('NEO4J_PASSWORD', 'aa1230.aa')
+neo4j_password = os.environ.get('NEO4J_PASSWORD', '')
 
 if not neo4j_uri or not neo4j_user or not neo4j_password:
     raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
