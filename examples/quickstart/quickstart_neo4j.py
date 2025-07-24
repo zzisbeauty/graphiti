@@ -17,17 +17,22 @@ logger = logging.getLogger(__name__)
 
 load_dotenv('./.env')  # or export OPENAI_API_KEY=
 
-# Neo4j connection parameters； running with a local DBMS started
+# home mac
 neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://neo4j:7687')
 neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
-neo4j_password = os.environ.get('NEO4J_PASSWORD', '')
+neo4j_password = os.environ.get('NEO4J_PASSWORD', 'aa1230.aa')
+
+# hw server env
+# neo4j_uri = os.environ.get('NEO4J_URI', 'http://10.0.15.21:7474')
+neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://10.0.15.21:7687')
+neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
+neo4j_password = os.environ.get('NEO4J_PASSWORD', '9NV84tLTcBLoVt')
+
 
 if not neo4j_uri or not neo4j_user or not neo4j_password:
     raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
 
-
 async def main():
-    # INITIALIZATION： Connect to Neo4j and set up Graphiti indices
     graphiti = Graphiti(neo4j_uri, neo4j_user, neo4j_password)
     try:
         # Initialize the graph database with graphiti's indices. This only needs to be done once.
@@ -50,20 +55,12 @@ async def main():
             )
             print(f'Added episode: Freakonomics Radio {i} ({episode["type"].value})')
 
-        #################################################
-        # BASIC SEARCH
-        #################################################
-        # The simplest way to retrieve relationships (edges)
-        # from Graphiti is using the search method, which
-        # performs a hybrid search combining semantic
-        # similarity and BM25 text retrieval.
-        #################################################
+        # The simplest way to retrieve relationships (edges) from Graphiti is using the search method, 
+        # which performs a hybrid search combining semantic similarity and BM25 text retrieval.
 
         # Perform a hybrid search combining semantic similarity and BM25 retrieval
         print("\nSearching for: 'Who was the California Attorney General?'")
         results = await graphiti.search('Who was the California Attorney General?')
-
-        # Print search results
         print('\nSearch Results:')
         for result in results:
             print(f'UUID: {result.uuid}')
@@ -74,13 +71,9 @@ async def main():
                 print(f'Valid until: {result.invalid_at}')
             print('---')
 
-        #################################################
+
         # CENTER NODE SEARCH
-        #################################################
-        # For more contextually relevant results, you can
-        # use a center node to rerank search results based
-        # on their graph distance to a specific node
-        #################################################
+        # For more contextually relevant results, you can use a center node to rerank search results based on their graph distance to a specific node
 
         # Use the top search result's UUID as the center node for reranking
         if results and len(results) > 0:
@@ -91,10 +84,9 @@ async def main():
             print(f'Using center node UUID: {center_node_uuid}')
 
             reranked_results = await graphiti.search(
-                'Who was the California Attorney General?', center_node_uuid=center_node_uuid
+                'Who was the California Attorney General?', 
+                center_node_uuid=center_node_uuid
             )
-
-            # Print reranked search results
             print('\nReranked Search Results:')
             for result in reranked_results:
                 print(f'UUID: {result.uuid}')
@@ -117,9 +109,7 @@ async def main():
         #################################################
 
         # Example: Perform a node search using _search method with standard recipes
-        print(
-            '\nPerforming node search using _search method with standard recipe NODE_HYBRID_SEARCH_RRF:'
-        )
+        print('\nPerforming node search using _search method with standard recipe NODE_HYBRID_SEARCH_RRF:')
 
         # Use a predefined search configuration recipe and modify its limit
         node_search_config = NODE_HYBRID_SEARCH_RRF.model_copy(deep=True)
