@@ -23,7 +23,14 @@ import numpy as np
 from pydantic import BaseModel, Field
 from typing_extensions import Any
 
-from graphiti_core.driver.driver import GraphDriver, GraphDriverSession, GraphProvider
+from graphiti_core.driver.driver import (
+    ENTITY_EDGE_INDEX_NAME,
+    ENTITY_INDEX_NAME,
+    EPISODE_INDEX_NAME,
+    GraphDriver,
+    GraphDriverSession,
+    GraphProvider,
+)
 from graphiti_core.edges import Edge, EntityEdge, EpisodicEdge, create_entity_edge_embeddings
 from graphiti_core.embedder import EmbedderClient
 from graphiti_core.graphiti_types import GraphitiClients
@@ -119,8 +126,6 @@ async def add_nodes_and_edges_bulk_tx(
     for episode in episodes:
         episode['source'] = str(episode['source'].value)
         episode.pop('labels', None)
-        if driver.provider == GraphProvider.NEO4J:
-            episode['group_label'] = 'Episodic_' + episode['group_id'].replace('-', '')
 
     nodes = []
 
@@ -143,9 +148,6 @@ async def add_nodes_and_edges_bulk_tx(
             entity_data['attributes'] = json.dumps(attributes)
         else:
             entity_data.update(node.attributes or {})
-            entity_data['labels'] = list(
-                set(node.labels + ['Entity', 'Entity_' + node.group_id.replace('-', '')])
-            )
 
         nodes.append(entity_data)
 
@@ -192,12 +194,25 @@ async def add_nodes_and_edges_bulk_tx(
             await tx.run(episodic_edge_query, **edge.model_dump())
     else:
         await tx.run(get_episode_node_save_bulk_query(driver.provider), episodes=episodes)
-        await tx.run(get_entity_node_save_bulk_query(driver.provider, nodes), nodes=nodes)
+        await tx.run(
+            get_entity_node_save_bulk_query(driver.provider, nodes),
+            nodes=nodes,
+            has_aoss=bool(driver.aoss_client),
+        )
         await tx.run(
             get_episodic_edge_save_bulk_query(driver.provider),
             episodic_edges=[edge.model_dump() for edge in episodic_edges],
         )
-        await tx.run(get_entity_edge_save_bulk_query(driver.provider), entity_edges=edges)
+        await tx.run(
+            get_entity_edge_save_bulk_query(driver.provider),
+            entity_edges=edges,
+            has_aoss=bool(driver.aoss_client),
+        )
+
+        if driver.aoss_client:
+            await driver.save_to_aoss(EPISODE_INDEX_NAME, episodes)
+            await driver.save_to_aoss(ENTITY_INDEX_NAME, nodes)
+            await driver.save_to_aoss(ENTITY_EDGE_INDEX_NAME, edges)
 
 
 async def extract_nodes_and_edges_bulk(
