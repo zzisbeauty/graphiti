@@ -35,20 +35,18 @@ from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 #################################################
 
 # Configure logging
-logging.basicConfig(
-    level=INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-)
+logging.basicConfig(level=INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S',)
 logger = logging.getLogger(__name__)
 
+
 load_dotenv()
+
 
 # Neo4j connection parameters
 # Make sure Neo4j Desktop is running with a local DBMS started
 neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
 neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
-neo4j_password = os.environ.get('NEO4J_PASSWORD', 'password')
+neo4j_password = os.environ.get('NEO4J_PASSWORD', 'aa1230.aa2')
 
 if not neo4j_uri or not neo4j_user or not neo4j_password:
     raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
@@ -57,6 +55,8 @@ if not neo4j_uri or not neo4j_user or not neo4j_password:
 async def main():
     #################################################
     # INITIALIZATION
+
+    # 连接到 Neo4j 数据库并设置 Graphiti 所需的索引和约束。
     #################################################
     # Connect to Neo4j and set up Graphiti indices
     # This is required before using other Graphiti
@@ -68,10 +68,28 @@ async def main():
 
     try:
         # Initialize the graph database with graphiti's indices. This only needs to be done once.
+        # 核心方法：它创建优化查询性能和确保数据完整性所需的数据库结构； 这是索引的意义; 1. 范围索引：用于基本的查询优化; 2. 全文索引：用于文本搜索功能
         await graphiti.build_indices_and_constraints()
+
+        breaking = 'break'
+
+
 
         #################################################
         # ADDING EPISODES
+
+        # Episodes 是 Graphiti 中信息的基本单位；Episodes 可以是文本或结构化 JSON 数据，系统会自动处理这些数据以提取实体和关系。
+        """
+        text: 纯文本内容（默认）
+        json: 结构化数据
+        message: 对话式内容
+        # 当您添加一个 Episode 时，Graphiti 会自动执行以下处理步骤
+        - 实体提取：从 Episode 内容中识别和提取实体节点
+        - 关系提取：分析实体之间的关系并创建边
+        - 节点解析：处理提取的节点并进行去重
+
+        # 在 MCP 服务器中，add_memory 函数展示了如何添加 Episodes; 该函数会调用 client.add_episode 来处理实际的数据添加，包括实体类型配置和时间戳设置。
+        """
         #################################################
         # Episodes are the primary units of information
         # in Graphiti. They can be text or structured JSON
@@ -83,42 +101,41 @@ async def main():
         # Episodes list containing both text and JSON episodes
         episodes = [
             {
-                'content': 'Kamala Harris is the Attorney General of California. She was previously '
-                'the district attorney for San Francisco.',
+                'content': '卡玛拉·哈里斯是加利福尼亚州的司法部长。她此前曾担任旧金山的地区检察官。',
                 'type': EpisodeType.text,
-                'description': 'podcast transcript',
+                'description': '播客转录',
             },
             {
-                'content': 'As AG, Harris was in office from January 3, 2011 – January 3, 2017',
+                'content': '作为司法部长，哈里斯的任期是从 2011 年 1 月 3 日到 2017 年 1 月 3 日',
                 'type': EpisodeType.text,
-                'description': 'podcast transcript',
+                'description': '播客转录',
             },
             {
                 'content': {
-                    'name': 'Gavin Newsom',
-                    'position': 'Governor',
-                    'state': 'California',
-                    'previous_role': 'Lieutenant Governor',
-                    'previous_location': 'San Francisco',
+                    'name': '加文·纽瑟姆',
+                    'position': '州长',
+                    'state': '加利福尼亚州',
+                    'previous_role': '副州长',
+                    'previous_location': '旧金山',
                 },
                 'type': EpisodeType.json,
-                'description': 'podcast metadata',
+                'description': '播客元数据',
             },
             {
                 'content': {
-                    'name': 'Gavin Newsom',
-                    'position': 'Governor',
-                    'term_start': 'January 7, 2019',
-                    'term_end': 'Present',
+                    'name': '加文·纽瑟姆',
+                    'position': '州长',
+                    'term_start': '2019 年 1 月 7 日',
+                    'term_end': '至今',
                 },
                 'type': EpisodeType.json,
-                'description': 'podcast metadata',
+                'description': '播客元数据',
             },
         ]
 
         # Add episodes to the graph
         for i, episode in enumerate(episodes):
-            await graphiti.add_episode(
+            await graphiti.add_episode( # 客户端添加 episodes（基本单元，即数据）
                 name=f'Freakonomics Radio {i}',
                 episode_body=episode['content']
                 if isinstance(episode['content'], str)
@@ -131,6 +148,9 @@ async def main():
 
         #################################################
         # BASIC SEARCH
+
+        # Graphiti 中最简单的检索关系（边）的方法是使用 search 方法，它执行混合搜索，结合语义相似性和 BM25 文本检索
+        # 还有 混合搜索机制
         #################################################
         # The simplest way to retrieve relationships (edges)
         # from Graphiti is using the search method, which
@@ -139,8 +159,8 @@ async def main():
         #################################################
 
         # Perform a hybrid search combining semantic similarity and BM25 retrieval
-        print("\nSearching for: 'Who was the California Attorney General?'")
-        results = await graphiti.search('Who was the California Attorney General?')
+        print("\n正在搜索: '谁是加利福尼亚州的司法部长？'")
+        results = await graphiti.search('谁是加利福尼亚州的司法部长？')
 
         # Print search results
         print('\nSearch Results:')
@@ -152,6 +172,7 @@ async def main():
             if hasattr(result, 'invalid_at') and result.invalid_at:
                 print(f'Valid until: {result.invalid_at}')
             print('---')
+
 
         #################################################
         # CENTER NODE SEARCH
@@ -185,6 +206,8 @@ async def main():
                 print('---')
         else:
             print('No results found in the initial search to use as center node.')
+
+
 
         #################################################
         # NODE SEARCH USING SEARCH RECIPES
@@ -224,6 +247,7 @@ async def main():
                 for key, value in node.attributes.items():
                     print(f'  {key}: {value}')
             print('---')
+
 
     finally:
         #################################################
