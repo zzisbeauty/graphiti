@@ -460,6 +460,9 @@ async def resolve_extracted_edge(
         response_model=EdgeDuplicate,
         model_size=ModelSize.small,
     )
+
+    print(f"LLM Response: {llm_response}") # 验证模型响应
+
     response_object = EdgeDuplicate(**llm_response)
     duplicate_facts = response_object.duplicate_facts
 
