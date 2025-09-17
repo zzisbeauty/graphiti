@@ -463,7 +463,7 @@ class Graphiti:
             validate_excluded_entity_types(excluded_entity_types, entity_types) # 验证排除的实体类型
             validate_group_id(group_id)
 
-            previous_episodes = (
+            previous_episodes = ( # 检索之前的 episodes，有助于保持知识图谱的连贯性
                 await self.retrieve_episodes(
                     reference_time,
                     last_n=RELEVANT_SCHEMA_LIMIT,
