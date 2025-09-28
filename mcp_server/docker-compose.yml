@@ -1,23 +1,23 @@
 services:
-  neo4j:
-    image: neo4j:5.26.0
-    ports:
-      - "7474:7474" # HTTP
-      - "7687:7687" # Bolt
-    environment:
-      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-demodemo}
-      - NEO4J_server_memory_heap_initial__size=512m
-      - NEO4J_server_memory_heap_max__size=1G
-      - NEO4J_server_memory_pagecache_size=512m
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-    healthcheck:
-      test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  # neo4j:
+  #   image: neo4j:5.26.0
+  #   ports:
+  #     - "7474:7474" # HTTP
+  #     - "7687:7687" # Bolt
+  #   environment:
+  #     - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-demodemo}
+  #     - NEO4J_server_memory_heap_initial__size=512m
+  #     - NEO4J_server_memory_heap_max__size=1G
+  #     - NEO4J_server_memory_pagecache_size=512m
+  #   volumes:
+  #     - neo4j_data:/data
+  #     - neo4j_logs:/logs
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
 
   graphiti-mcp:
     image: zepai/knowledge-graph-mcp:latest
@@ -27,21 +27,43 @@ services:
     env_file:
       - path: .env
         required: false # Makes the file optional. Default value is 'true'
-    depends_on:
-      neo4j:
-        condition: service_healthy
+    # depends_on:
+    #   neo4j:
+    #     condition: service_healthy
     environment:
-      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
+      - NEO4J_URI=${NEO4J_URI:-bolt://192.168.1.6:7689}
       - NEO4J_USER=${NEO4J_USER:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-demodemo}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - MODEL_NAME=${MODEL_NAME}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-aa1230.aa2}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-vllm}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://192.168.1.6:5915/v1}
+      - MODEL_NAME=${MODEL_NAME:-/app/models/custom/Qwen3-4B-Thinking-2507}
+      - MCP_SERVER_HOST=0.0.0.0
       - PATH=/root/.local/bin:${PATH}
       - SEMAPHORE_LIMIT=${SEMAPHORE_LIMIT:-10}
     ports:
-      - "8000:8000" # Expose the MCP server via HTTP for SSE transport
-    command: ["uv", "run", "graphiti_mcp_server.py", "--transport", "sse"]
+      - "5925:8000" # Expose the MCP server via HTTP for SSE transport
+    # command: ["uv", "run", "graphiti_mcp_server.py", "--transport", "sse", "--host", "0.0.0.0"]
+    # working_dir: /home/graphiti
+    command: ["uv", "run", "graphiti_mcp_server.py", "--transport", "sse", "--use-custom-entities"] # 使用自定义 schema; 如果自定义实体有变化，需要 docker compose build
+    # volumes:
+    #   - .:/home/graphiti
 
-volumes:
-  neo4j_data:
-  neo4j_logs:
+# volumes:
+#   neo4j_data:
+#   neo4j_logs:
+
+
+# 启动容器后的几个检查
+# nvidia@nvidia:~/Desktop/graphiti/mcp_server$ netstat -tlnp | grep 5925  
+# （并非所有进程都能被检测到，所有非本用户的进程信息将不会显示，如果想看到所有信息，则必须切换到 root 用户）
+# tcp        0      0 0.0.0.0:5925            0.0.0.0:*               LISTEN      -                   
+# tcp6       0      0 :::5925                 :::*                    LISTEN      -                   
+# nvidia@nvidia:~/Desktop/graphiti/mcp_server$ 
+# nvidia@nvidia:~/Desktop/graphiti/mcp_server$ 
+# nvidia@nvidia:~/Desktop/graphiti/mcp_server$ 
+# nvidia@nvidia:~/Desktop/graphiti/mcp_server$ docker compose exec graphiti-mcp curl http://localhost:8000/sse
+# event: endpoint
+# data: /messages/?session_id=c1bd4d09a8d042dbb5541bbbd491375b
+
+
+# 启动后验证服务 curl http://192.168.1.6:5925/sse

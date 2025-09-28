@@ -20,18 +20,17 @@ from pydantic import BaseModel, Field
 
 from .models import Message, PromptFunction, PromptVersion
 from .prompt_helpers import to_prompt_json
+from typing import List, Optional
 
+# class EdgeDuplicate(BaseModel):
+#     duplicate_facts: list[int] = Field(..., description='List of ids of any duplicate facts. If no duplicate facts are found, default to empty list.',)
+#     contradicted_facts: list[int] = Field(...,description='List of ids of facts that should be invalidated. If no facts should be invalidated, the list should be empty.',)
+#     fact_type: str = Field(..., description='One of the provided fact types or DEFAULT')
 
-class EdgeDuplicate(BaseModel):
-    duplicate_facts: list[int] = Field(
-        ...,
-        description='List of ids of any duplicate facts. If no duplicate facts are found, default to empty list.',
-    )
-    contradicted_facts: list[int] = Field(
-        ...,
-        description='List of ids of facts that should be invalidated. If no facts should be invalidated, the list should be empty.',
-    )
-    fact_type: str = Field(..., description='One of the provided fact types or DEFAULT')
+class EdgeDuplicate(BaseModel):  
+    duplicate_facts: Optional[list[int]] = Field(None, description='List of ids of any duplicate facts. If no duplicate facts are found, default to empty list.')  
+    contradicted_facts: Optional[list[int]] = Field(None, description='List of ids of facts that should be invalidated. If no facts should be invalidated, the list should be empty.')  
+    fact_type: Optional[str] = Field(None, description='One of the provided fact types or DEFAULT')
 
 
 class UniqueFact(BaseModel):
@@ -114,7 +113,8 @@ def edge_list(context: dict[str, Any]) -> list[Message]:
     ]
 
 
-def resolve_edge(context: dict[str, Any]) -> list[Message]:
+# 边关系解析 - 原始的
+def _resolve_edge(context: dict[str, Any]) -> list[Message]:
     return [
         Message(
             role='system',
@@ -158,6 +158,170 @@ def resolve_edge(context: dict[str, Any]) -> list[Message]:
         """,
         ),
     ]
+
+
+# 简化后的英文版本
+def __resolve_edge(context: dict[str, Any]) -> list[Message]:
+    # 预定义JSON示例，避免在f-string中处理复杂的花括号转义
+    json_example1 = '{"duplicate_facts": [2, 5], "fact_type": "BIRTH_DATE", "contradicted_facts": [7]}'
+    json_example2 = '{"duplicate_facts": [], "fact_type": "DEFAULT", "contradicted_facts": []}'
+    
+    return [
+        Message(
+            role="system",
+            content="You are an assistant that removes duplicate facts and checks if a new fact contradicts existing ones. Your response must be a single JSON object (no explanations, no extra text).",
+        ),
+        Message(
+            role="user",
+            content=f"""<NEW FACT>
+{context['new_edge']}
+</NEW FACT>
+
+<EXISTING FACTS>
+{context['existing_edges']}
+</EXISTING FACTS>
+
+<FACT INVALIDATION CANDIDATES>
+{context['edge_invalidation_candidates']}
+</FACT INVALIDATION CANDIDATES>
+
+<FACT TYPES>
+{context['edge_types']}
+</FACT TYPES>
+
+Strict Task:
+1. If NEW FACT is identical to any EXISTING FACTS, return duplicate_facts as a list of their idx values.
+   - If no duplicates, return an empty list [] (never return None or omit the field).
+2. Determine the fact_type of NEW FACT.
+   - If it matches one of the FACT TYPES, return that type as a string.
+   - Otherwise return "DEFAULT".
+3. Based on FACT INVALIDATION CANDIDATES and NEW FACT, return contradicted_facts as a list of idx values.
+   - If none, return [].
+
+Output Format (must follow strictly):
+- Return exactly one JSON object, no extra text.
+- JSON must include ALL THREE fields:
+  - "duplicate_facts": list of integers (idx values). Must be [] if none.
+  - "fact_type": string (one of FACT TYPES or "DEFAULT").
+  - "contradicted_facts": list of integers (idx values). Must be [] if none.
+- Never return null, None, or omit fields.
+- Must be valid RFC8259 JSON (no comments, no trailing commas).
+
+Valid JSON examples:
+{json_example1}
+{json_example2}
+
+Final reminder:
+LLM must output exactly one JSON object with all required fields, using [] for empty lists, never None/null, and no extra text.
+"""),
+    ]
+
+
+def resolve_edge(context: dict[str, Any]) -> list[Message]:
+    # 预定义JSON示例，避免花括号转义问题
+    json_example1 = '{"duplicate_facts": [2, 5], "fact_type": "BIRTH_DATE", "contradicted_facts": [7]}'
+    json_example2 = '{"duplicate_facts": [], "fact_type": "DEFAULT", "contradicted_facts": []}'
+    
+    return [
+        Message(
+            role="system",
+            content="你是一个助手，负责去重事实并检查新事实是否与已有事实矛盾。你的最终回答必须严格是一个 JSON 对象（仅有该对象，不允许额外文本或解释）。",
+        ),
+        Message(
+            role="user",
+            content=f"""<NEW FACT>
+{context['new_edge']}
+</NEW FACT>
+
+<EXISTING FACTS>
+{context['existing_edges']}
+</EXISTING FACTS>
+
+<FACT INVALIDATION CANDIDATES>
+{context['edge_invalidation_candidates']}
+</FACT INVALIDATION CANDIDATES>
+
+<FACT TYPES>
+{context['edge_types']}
+</FACT TYPES>
+
+任务（严格）：
+1. 如果 NEW FACT 与 EXISTING FACTS 完全相同，返回 duplicate_facts（数组），内容为重复事实的 idx 列表；如果没有重复，返回空数组 []（绝对不能返回 None 或省略字段）。
+2. 判断 NEW FACT 的 fact_type。若与提供的 FACT TYPES 完全匹配，返回该字符串；否则返回 "DEFAULT"。
+3. 根据 FACT INVALIDATION CANDIDATES 和 NEW FACT，返回 contradicted_facts（数组），包含所有被新事实反驳的已有事实 idx；如果没有，返回 []。
+
+输出格式（必须严格遵守）：
+- 仅返回一个 JSON 对象，且没有任何附加文本。
+- JSON 对象必须包含以下三个字段（不能省略）：
+  - "duplicate_facts": 整数数组（EXISTING FACTS 的 idx 值），若无则 []。
+  - "fact_type": 字符串（FACT TYPES 的值或 "DEFAULT"）。
+  - "contradicted_facts": 整数数组（EXISTING FACTS 的 idx 值），若无则 []。
+- 不允许返回 null / None / "null" 或省略字段。空值必须用空数组 [] 表示。
+- 必须返回合法的 RFC8259 JSON（无注释、无尾逗号）。
+
+合法 JSON 示例：
+{json_example1}
+{json_example2}
+
+再次提醒：
+LLM 的最终输出必须严格为单个 JSON 对象，包含所有字段，空数组必须使用 []，不可返回 None/null 或额外文本。
+"""),
+    ]
+
+
+# 另一种更安全的实现方式，使用模板字符串
+def resolve_edge_template_version(context: dict[str, Any]) -> list[Message]:
+    """使用字符串模板的版本，完全避免f-string花括号问题"""
+    
+    template = """<NEW FACT>
+{new_edge}
+</NEW FACT>
+
+<EXISTING FACTS>
+{existing_edges}
+</EXISTING FACTS>
+
+<FACT INVALIDATION CANDIDATES>
+{edge_invalidation_candidates}
+</FACT INVALIDATION CANDIDATES>
+
+<FACT TYPES>
+{edge_types}
+</FACT TYPES>
+
+任务（严格）：
+1. 如果 NEW FACT 与 EXISTING FACTS 完全相同，返回 duplicate_facts（数组），内容为重复事实的 idx 列表；如果没有重复，返回空数组 []（绝对不能返回 None 或省略字段）。
+2. 判断 NEW FACT 的 fact_type。若与提供的 FACT TYPES 完全匹配，返回该字符串；否则返回 "DEFAULT"。
+3. 根据 FACT INVALIDATION CANDIDATES 和 NEW FACT，返回 contradicted_facts（数组），包含所有被新事实反驳的已有事实 idx；如果没有，返回 []。
+
+输出格式（必须严格遵守）：
+- 仅返回一个 JSON 对象，且没有任何附加文本。
+- JSON 对象必须包含以下三个字段（不能省略）：
+  - "duplicate_facts": 整数数组（EXISTING FACTS 的 idx 值），若无则 []。
+  - "fact_type": 字符串（FACT TYPES 的值或 "DEFAULT"）。
+  - "contradicted_facts": 整数数组（EXISTING FACTS 的 idx 值），若无则 []。
+- 不允许返回 null / None / "null" 或省略字段。空值必须用空数组 [] 表示。
+- 必须返回合法的 RFC8259 JSON（无注释、无尾逗号）。
+
+合法 JSON 示例：
+{"duplicate_facts": [2, 5], "fact_type": "BIRTH_DATE", "contradicted_facts": [7]}
+{"duplicate_facts": [], "fact_type": "DEFAULT", "contradicted_facts": []}
+
+再次提醒：
+LLM 的最终输出必须严格为单个 JSON 对象，包含所有字段，空数组必须使用 []，不可返回 None/null 或额外文本。
+"""
+
+    return [
+        Message(
+            role="system",
+            content="你是一个助手，负责去重事实并检查新事实是否与已有事实矛盾。你的最终回答必须严格是一个 JSON 对象（仅有该对象，不允许额外文本或解释）。",
+        ),
+        Message(
+            role="user",
+            content=template.format(**context)
+        ),
+    ]
+
 
 
 versions: Versions = {'edge': edge, 'edge_list': edge_list, 'resolve_edge': resolve_edge}

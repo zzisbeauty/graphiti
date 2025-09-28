@@ -106,7 +106,15 @@ class OpenAIGenericClient(LLMClient):
                 max_tokens=self.max_tokens,
                 response_format={'type': 'json_object'},
             )
+
+            print(f"LLM 原始响应: {response}")  
+            print(f"响应内容: {response.choices[0].message.content}")  
+            
             result = response.choices[0].message.content or ''
+            
+            print(f"提取的结果: '{result}'")  
+            print(f"结果长度: {len(result)}")
+
             return json.loads(result)
         except openai.RateLimitError as e:
             raise RateLimitError from e

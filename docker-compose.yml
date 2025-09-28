@@ -1,9 +1,9 @@
 services:
-  graph:
+  graphiti-rest-api:
     build:
       context: .
     ports:
-      - "8000:8000"
+      - "5926:8000"  # 避免和 mcp server 的端口（5925）冲突
     healthcheck:
       test:
         [
@@ -15,34 +15,42 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    depends_on:
-      neo4j:
-        condition: service_healthy
+    # depends_on:
+    #   neo4j:
+    #     condition: service_healthy
+    volumes:   # 挂载本地的 prompt 文件夹到容器内 , 不加这个无法使用我本地修改的  prompt， 而是直接用容器内预构建的这些 prompt
+      - ./graphiti_core/prompts:/app/graphiti_core/prompts  
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - NEO4J_URI=bolt://neo4j:${NEO4J_PORT:-7687}
-      - NEO4J_USER=${NEO4J_USER}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-      - PORT=8000
-  neo4j:
-    image: neo4j:5.26.2
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -qO- http://localhost:${NEO4J_PORT:-7474} || exit 1",
-        ]
-      interval: 1s
-      timeout: 10s
-      retries: 10
-      start_period: 3s
-    ports:
-      - "7474:7474" # HTTP
-      - "${NEO4J_PORT:-7687}:${NEO4J_PORT:-7687}" # Bolt
-    volumes:
-      - neo4j_data:/data
-    environment:
-      - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
+      - NEO4J_URI=${NEO4J_URI:-bolt://192.168.1.6:7689}  
+      - NEO4J_USER=${NEO4J_USER:-neo4j}  
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-aa1230.aa2}  
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-vllm}  
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://192.168.1.6:5915/v1}  
+      - MODEL_NAME=${MODEL_NAME:-/app/models/custom/Qwen3-4B-Thinking-2507}  
+      - PORT=8000  
+      - PATH=/root/.local/bin:${PATH}  
+      - SEMAPHORE_LIMIT=${SEMAPHORE_LIMIT:-10}
+    command: ["uv", "run", "uvicorn", "graph_service.main:app", "--host", "0.0.0.0", "--port", "8000"]
+  # neo4j:
+  #   image: neo4j:5.26.2
+  #   healthcheck:
+  #     test:
+  #       [
+  #         "CMD-SHELL",
+  #         "wget -qO- http://localhost:${NEO4J_PORT:-7474} || exit 1",
+  #       ]
+  #     interval: 1s
+  #     timeout: 10s
+  #     retries: 10
+  #     start_period: 3s
+  #   ports:
+  #     - "7474:7474" # HTTP
+  #     - "${NEO4J_PORT:-7687}:${NEO4J_PORT:-7687}" # Bolt
+  #   volumes:
+  #     - neo4j_data:/data
+  #   environment:
+  #     - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
 
-volumes:
-  neo4j_data:
+
+# volumes:
+#   neo4j_data:

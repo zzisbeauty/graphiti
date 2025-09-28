@@ -145,10 +145,7 @@ async def extract_edges(
     # Prepare context for LLM
     context = {
         'episode_content': episode.content,
-        'nodes': [
-            {'id': idx, 'name': node.name, 'entity_types': node.labels}
-            for idx, node in enumerate(nodes)
-        ],
+        'nodes': [{'id': idx, 'name': node.name, 'entity_types': node.labels} for idx, node in enumerate(nodes)],
         'previous_episodes': [ep.content for ep in previous_episodes],
         'reference_time': episode.valid_at,
         'edge_types': edge_types_context,
@@ -164,14 +161,13 @@ async def extract_edges(
             response_model=ExtractedEdges,
             max_tokens=extract_edges_max_tokens,
         )
+
         edges_data = ExtractedEdges(**llm_response).edges
-
         context['extracted_facts'] = [edge_data.fact for edge_data in edges_data]
-
         reflexion_iterations += 1
         if reflexion_iterations < MAX_REFLEXION_ITERATIONS:
             reflexion_response = await llm_client.generate_response(
-                prompt_library.extract_edges.reflexion(context),
+                prompt_library.extract_edges.reflexion(context), # 抽取关系后的反思机制
                 response_model=MissingFacts,
                 max_tokens=extract_edges_max_tokens,
             )
@@ -204,26 +200,20 @@ async def extract_edges(
         source_node_idx = edge_data.source_entity_id
         target_node_idx = edge_data.target_entity_id
         if not (-1 < source_node_idx < len(nodes) and -1 < target_node_idx < len(nodes)):
-            logger.warning(
-                f'WARNING: source or target node not filled {edge_data.relation_type}. source_node_uuid: {source_node_idx} and target_node_uuid: {target_node_idx} '
-            )
+            logger.warning(f'WARNING: source or target node not filled {edge_data.relation_type}. source_node_uuid: {source_node_idx} and target_node_uuid: {target_node_idx}')
             continue
         source_node_uuid = nodes[source_node_idx].uuid
         target_node_uuid = nodes[edge_data.target_entity_id].uuid
 
         if valid_at:
             try:
-                valid_at_datetime = ensure_utc(
-                    datetime.fromisoformat(valid_at.replace('Z', '+00:00'))
-                )
+                valid_at_datetime = ensure_utc(datetime.fromisoformat(valid_at.replace('Z', '+00:00')))
             except ValueError as e:
                 logger.warning(f'WARNING: Error parsing valid_at date: {e}. Input: {valid_at}')
 
         if invalid_at:
             try:
-                invalid_at_datetime = ensure_utc(
-                    datetime.fromisoformat(invalid_at.replace('Z', '+00:00'))
-                )
+                invalid_at_datetime = ensure_utc(datetime.fromisoformat(invalid_at.replace('Z', '+00:00')))
             except ValueError as e:
                 logger.warning(f'WARNING: Error parsing invalid_at date: {e}. Input: {invalid_at}')
         edge = EntityEdge(
@@ -238,12 +228,8 @@ async def extract_edges(
             invalid_at=invalid_at_datetime,
         )
         edges.append(edge)
-        logger.debug(
-            f'Created new edge: {edge.name} from (UUID: {edge.source_node_uuid}) to (UUID: {edge.target_node_uuid})'
-        )
-
+        logger.debug(f'Created new edge: {edge.name} from (UUID: {edge.source_node_uuid}) to (UUID: {edge.target_node_uuid})')
     logger.debug(f'Extracted edges: {[(e.name, e.uuid) for e in edges]}')
-
     return edges
 
 
@@ -456,10 +442,12 @@ async def resolve_extracted_edge(
     }
 
     llm_response = await llm_client.generate_response(
-        prompt_library.dedupe_edges.resolve_edge(context),
+        prompt_library.dedupe_edges.resolve_edge(context), # 边关系解析
         response_model=EdgeDuplicate,
         model_size=ModelSize.small,
     )
+
+    # 边关系解析阶段
     response_object = EdgeDuplicate(**llm_response)
     duplicate_facts = response_object.duplicate_facts
 

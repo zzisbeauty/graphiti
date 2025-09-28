@@ -127,8 +127,8 @@ async def extract_nodes(
             )
 
         response_object = ExtractedEntities(**llm_response)
-
         extracted_entities: list[ExtractedEntity] = response_object.extracted_entities
+        pass
 
         reflexion_iterations += 1
         if reflexion_iterations < MAX_REFLEXION_ITERATIONS:
@@ -206,15 +206,12 @@ async def resolve_extracted_nodes(
     )
 
     candidate_nodes: list[EntityNode] = (
-        [node for result in search_results for node in result.nodes]
-        if existing_nodes_override is None
+        [node for result in search_results for node in result.nodes] if existing_nodes_override is None
         else existing_nodes_override
     )
 
     existing_nodes_dict: dict[str, EntityNode] = {node.uuid: node for node in candidate_nodes}
-
     existing_nodes: list[EntityNode] = list(existing_nodes_dict.values())
-
     existing_nodes_context = (
         [
             {
@@ -323,10 +320,10 @@ async def extract_attributes_from_nodes(
             for node in nodes
         ]
     )
+    # 方法调用 create_entity_node_embeddings 为所有更新后的节点生成名称嵌入向量； 批量为节点名称生成嵌入向量用于后续的语义搜索。
+    await create_entity_node_embeddings(embedder, updated_nodes) 
 
-    await create_entity_node_embeddings(embedder, updated_nodes)
-
-    return updated_nodes
+    return updated_nodes  # 返回更新节点：返回包含完整属性和摘要的节点列表
 
 
 async def extract_attributes_from_node(

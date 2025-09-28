@@ -113,7 +113,7 @@ async def add_nodes_and_edges_bulk(
         await session.close()
 
 
-async def add_nodes_and_edges_bulk_tx(
+async def _add_nodes_and_edges_bulk_tx(
     tx: GraphDriverSession,
     episodic_nodes: list[EpisodicNode],
     episodic_edges: list[EpisodicEdge],
@@ -128,7 +128,6 @@ async def add_nodes_and_edges_bulk_tx(
         episode.pop('labels', None)
 
     nodes = []
-
     for node in entity_nodes:
         if node.name_embedding is None:
             await node.generate_name_embedding(embedder)
@@ -169,7 +168,6 @@ async def add_nodes_and_edges_bulk_tx(
             'valid_at': edge.valid_at,
             'invalid_at': edge.invalid_at,
         }
-
         if driver.provider == GraphProvider.KUZU:
             attributes = convert_datetimes_to_strings(edge.attributes) if edge.attributes else {}
             edge_data['attributes'] = json.dumps(attributes)
@@ -213,6 +211,181 @@ async def add_nodes_and_edges_bulk_tx(
             await driver.save_to_aoss(EPISODE_INDEX_NAME, episodes)
             await driver.save_to_aoss(ENTITY_INDEX_NAME, nodes)
             await driver.save_to_aoss(ENTITY_EDGE_INDEX_NAME, edges)
+
+
+
+
+
+async def add_nodes_and_edges_bulk_tx(
+    tx: GraphDriverSession,
+    episodic_nodes: list[EpisodicNode],
+    episodic_edges: list[EpisodicEdge],
+    entity_nodes: list[EntityNode],
+    entity_edges: list[EntityEdge],
+    embedder: EmbedderClient,
+    driver: GraphDriver,
+):
+    episodes = [dict(episode) for episode in episodic_nodes]
+    for episode in episodes:
+        episode['source'] = str(episode['source'].value)
+        episode.pop('labels', None)
+
+    nodes = []
+    for node in entity_nodes:
+        if node.name_embedding is None:
+            await node.generate_name_embedding(embedder)
+
+        entity_data: dict[str, Any] = {
+            'uuid': node.uuid,
+            'name': node.name,
+            'name_embedding': node.name_embedding,
+            'group_id': node.group_id,
+            'summary': node.summary,
+            'created_at': node.created_at,
+        }
+
+        entity_data['labels'] = list(set(node.labels + ['Entity']))
+        if driver.provider == GraphProvider.KUZU:
+            attributes = convert_datetimes_to_strings(node.attributes) if node.attributes else {}
+            entity_data['attributes'] = json.dumps(attributes)
+
+        else:
+
+            # 将复杂对象转换为字符串，保留原始类型  (新增的代码)
+            logger.debug(f"Processing node attributes for Neo4j ---------------------------> : {node.attributes}") 
+            if node.attributes:  
+                # 过滤掉 Pydantic schema 信息和复杂对象  
+                filtered_attrs = {}  
+                for k, v in node.attributes.items():  
+                    # 跳过 Pydantic schema 相关字段  
+                    if k in ['anyOf', 'type', 'description', 'title', 'default', 'items']:  
+                        continue
+
+                    if isinstance(v, (str, int, float, bool)):  
+                        filtered_attrs[k] = v  
+                    elif isinstance(v, list):  
+                        # 确保列表中只包含原始类型  
+                        simple_list = []  
+                        for item in v:  
+                            if isinstance(item, (str, int, float, bool)):  
+                                simple_list.append(item)  
+                            elif isinstance(item, dict):  
+                                # 跳过复杂对象  
+                                continue  
+                            else:  
+                                simple_list.append(str(item))  
+                        if simple_list:  
+                            filtered_attrs[k] = simple_list  
+                    elif isinstance(v, dict):  
+                        # 完全跳过字典类型，因为 Neo4j 不支持  
+                        continue  
+                    elif v is None or v == "NO_VALUE":  
+                        # 跳过空值  
+                        continue  
+                    else:  
+                        # 其他类型转换为字符串  
+                        filtered_attrs[k] = str(v)  
+                
+                entity_data.update(filtered_attrs)  
+            else:  
+                entity_data.update({})
+
+            logger.debug(f"Final entity_data ----------------------------------------------> : {entity_data}")
+
+
+            # 已有的代码 ============================
+            # entity_data.update(node.attributes or {})
+
+        nodes.append(entity_data)
+    edges = []
+    for edge in entity_edges:
+        if edge.fact_embedding is None:
+            await edge.generate_embedding(embedder)
+        edge_data: dict[str, Any] = {
+            'uuid': edge.uuid,
+            'source_node_uuid': edge.source_node_uuid,
+            'target_node_uuid': edge.target_node_uuid,
+            'name': edge.name,
+            'fact': edge.fact,
+            'fact_embedding': edge.fact_embedding,
+            'group_id': edge.group_id,
+            'episodes': edge.episodes,
+            'created_at': edge.created_at,
+            'expired_at': edge.expired_at,
+            'valid_at': edge.valid_at,
+            'invalid_at': edge.invalid_at,
+        }
+
+        if driver.provider == GraphProvider.KUZU:
+            attributes = convert_datetimes_to_strings(edge.attributes) if edge.attributes else {}
+            edge_data['attributes'] = json.dumps(attributes)
+
+        else:
+            
+            # 将复杂对象转换为字符串，保留原始类型  (新增的代码)
+            logger.debug(f"Processing node attributes for Neo4j ---------------------------> : {node.attributes}") 
+            if edge.attributes:  
+                filtered_edge_attrs = {}  
+                for k, v in edge.attributes.items():  
+                    if k in ['anyOf', 'type', 'description', 'title', 'default', 'items']:  
+                        continue  
+                    if isinstance(v, (str, int, float, bool)):  
+                        filtered_edge_attrs[k] = v  
+                    elif isinstance(v, list) and all(isinstance(item, (str, int, float, bool)) for item in v):  
+                        filtered_edge_attrs[k] = v  
+                    elif v is not None and v != "NO_VALUE":  
+                        filtered_edge_attrs[k] = str(v)  
+                edge_data.update(filtered_edge_attrs)  
+            else:  
+                edge_data.update({})
+
+            logger.debug(f"Final entity_data ----------------------------------------------> : {entity_data}")
+
+            # 已有的代码 ================================
+            # edge_data.update(edge.attributes or {})
+
+        edges.append(edge_data)
+
+    if driver.provider == GraphProvider.KUZU:
+        # FIXME: Kuzu's UNWIND does not currently support STRUCT[] type properly, so we insert the data one by one instead for now.
+        episode_query = get_episode_node_save_bulk_query(driver.provider)
+        for episode in episodes:
+            await tx.run(episode_query, **episode)
+        entity_node_query = get_entity_node_save_bulk_query(driver.provider, nodes)
+        for node in nodes:
+            await tx.run(entity_node_query, **node)
+        entity_edge_query = get_entity_edge_save_bulk_query(driver.provider)
+        for edge in edges:
+            await tx.run(entity_edge_query, **edge)
+        episodic_edge_query = get_episodic_edge_save_bulk_query(driver.provider)
+        for edge in episodic_edges:
+            await tx.run(episodic_edge_query, **edge.model_dump())
+    else:
+        await tx.run(get_episode_node_save_bulk_query(driver.provider), episodes=episodes)
+        await tx.run(
+            get_entity_node_save_bulk_query(driver.provider, nodes),
+            nodes=nodes,
+            has_aoss=bool(driver.aoss_client),
+        )
+        await tx.run(
+            get_episodic_edge_save_bulk_query(driver.provider),
+            episodic_edges=[edge.model_dump() for edge in episodic_edges],
+        )
+        await tx.run(
+            get_entity_edge_save_bulk_query(driver.provider),
+            entity_edges=edges,
+            has_aoss=bool(driver.aoss_client),
+        )
+
+        if driver.aoss_client:
+            await driver.save_to_aoss(EPISODE_INDEX_NAME, episodes)
+            await driver.save_to_aoss(ENTITY_INDEX_NAME, nodes)
+            await driver.save_to_aoss(ENTITY_EDGE_INDEX_NAME, edges)
+
+
+
+
+
 
 
 async def extract_nodes_and_edges_bulk(

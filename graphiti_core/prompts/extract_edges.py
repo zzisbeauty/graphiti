@@ -57,7 +57,8 @@ class Versions(TypedDict):
     extract_attributes: PromptFunction
 
 
-def edge(context: dict[str, Any]) -> list[Message]:
+# =========================================================================== edge
+def _edge(context: dict[str, Any]) -> list[Message]:
     return [
         Message(
             role='system',
@@ -102,7 +103,6 @@ Only extract facts that:
 
 You may use information from the PREVIOUS MESSAGES only to disambiguate references or support continuity.
 
-
 {context['custom_prompt']}
 
 # EXTRACTION RULES
@@ -126,6 +126,50 @@ You may use information from the PREVIOUS MESSAGES only to disambiguate referenc
         """,
         ),
     ]
+
+def edge(context: dict[str, Any]) -> list[Message]:  
+    return [  
+        Message(  
+            role='system',  
+            content='你是专业的关系提取助手。严格按照JSON格式输出关系。'  
+        ),  
+        Message(  
+            role='user',  
+            content=f"""  
+<实体列表>  
+{context['nodes']}  
+</实体列表>  
+  
+<文本>  
+{context['episode_content']}  
+</文本>  
+  
+<参考时间>  
+{context['reference_time']}  
+</参考时间>  
+  
+提取实体间关系，严格按照以下JSON格式输出：  
+  
+{{  
+  "edges": [  
+    {{  
+      "relation_type": "关系类型_大写下划线",  
+      "source_entity_id": 源实体ID数字,  
+      "target_entity_id": 目标实体ID数字,  
+      "fact": "关系描述",  
+      "valid_at": "2025-01-01T00:00:00.000000Z",  
+      "invalid_at": null  
+    }}  
+  ]  
+}}  
+  
+只输出JSON
+""",  
+        ),  
+    ]
+
+
+
 
 
 def reflexion(context: dict[str, Any]) -> list[Message]:

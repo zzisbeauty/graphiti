@@ -397,14 +397,11 @@ class Graphiti:
         edge_types: dict[str, type[BaseModel]] | None = None,
         edge_type_map: dict[tuple[str, str], list[str]] | None = None,
     ) -> AddEpisodeResults:
-        """
-        Process an episode and update the graph.
-
-        This method extracts information from the episode, creates nodes and edges,
-        and updates the graph database accordingly.
+        """ # 方法作用 https://deepwiki.com/search/addepisode_0610148e-792d-417d-b12d-37502fb377c3
+        Process an episode and update the graph. This method extracts information from the episode, creates nodes and edges, and updates the graph database accordingly.
 
         Parameters
-        ----------
+        ------------------------------------------------------------
         name : str
             The name of the episode.
         episode_body : str
@@ -425,11 +422,9 @@ class Graphiti:
             Optional. Dictionary mapping entity type names to their Pydantic model definitions.
         excluded_entity_types : list[str] | None
             Optional. List of entity type names to exclude from the graph. Entities classified
-            into these types will not be added to the graph. Can include 'Entity' to exclude
-            the default entity type.
+            into these types will not be added to the graph. Can include 'Entity' to exclude the default entity type.
         previous_episode_uuids : list[str] | None
-            Optional.  list of episode uuids to use as the previous episodes. If this is not provided,
-            the most recent episodes by created_at date will be used.
+            Optional.  list of episode uuids to use as the previous episodes. If this is not provided, the most recent episodes by created_at date will be used.
 
         Returns
         -------
@@ -438,13 +433,11 @@ class Graphiti:
         Notes
         -----
         This method performs several steps including node extraction, edge extraction,
-        deduplication, and database updates. It also handles embedding generation
-        and edge invalidation.
+        deduplication, and database updates. It also handles embedding generation and edge invalidation.
 
         It is recommended to run this method as a background process, such as in a queue.
         It's important that each episode is added sequentially and awaited before adding
-        the next one. For web applications, consider using FastAPI's background tasks
-        or a dedicated task queue like Celery for this purpose.
+        the next one. For web applications, consider using FastAPI's background tasks or a dedicated task queue like Celery for this purpose.
 
         Example using FastAPI background tasks:
             @app.post("/add_episode")
@@ -463,14 +456,11 @@ class Graphiti:
             validate_excluded_entity_types(excluded_entity_types, entity_types)
             validate_group_id(group_id)
 
+            # 这段代码使用了条件表达式（三元运算符）来决定如何获取历史 episodes， 就是决定数据加入到那个  episodes 中
             previous_episodes = (
-                await self.retrieve_episodes(
-                    reference_time,
-                    last_n=RELEVANT_SCHEMA_LIMIT,
-                    group_ids=[group_id],
-                    source=source,
-                )
-                if previous_episode_uuids is None
+                # 如果没有指定具体的episode uuids  
+                await self.retrieve_episodes(reference_time, last_n=RELEVANT_SCHEMA_LIMIT, group_ids=[group_id], source=source,) if previous_episode_uuids is None 
+                # 否则根据提供的uuids获取指定episodes
                 else await EpisodicNode.get_by_uuids(self.driver, previous_episode_uuids)
             )
 
@@ -497,21 +487,18 @@ class Graphiti:
             )
 
             # Extract entities as nodes
-
-            extracted_nodes = await extract_nodes(
-                self.clients, episode, previous_episodes, entity_types, excluded_entity_types
-            )
+            extracted_nodes = await extract_nodes(self.clients, episode, previous_episodes, entity_types, excluded_entity_types)
 
             # Extract edges and resolve nodes
-            (nodes, uuid_map, node_duplicates), extracted_edges = await semaphore_gather(
-                resolve_extracted_nodes(
+            (nodes, uuid_map, node_duplicates), extracted_edges = await semaphore_gather( # 并行任务
+                resolve_extracted_nodes( # 返回结果：返回去重后的节点列表、UUID映射关系和重复节点对
                     self.clients,
                     extracted_nodes,
                     episode,
                     previous_episodes,
                     entity_types,
                 ),
-                extract_edges(
+                extract_edges( # ：从文本中提取实体间的关系
                     self.clients,
                     episode,
                     extracted_nodes,
@@ -526,7 +513,7 @@ class Graphiti:
             edges = resolve_edge_pointers(extracted_edges, uuid_map)
 
             (resolved_edges, invalidated_edges), hydrated_nodes = await semaphore_gather(
-                resolve_extracted_edges(
+                resolve_extracted_edges( # 边关系解析 (resolve_extracted_edges) 去重 
                     self.clients,
                     edges,
                     episode,
@@ -534,23 +521,24 @@ class Graphiti:
                     edge_types or {},
                     edge_type_map or edge_type_map_default,
                 ),
-                extract_attributes_from_nodes(
+                extract_attributes_from_nodes( # 属性提取：为每个实体节点提取详细属性； 并行处理：同时为所有节点提取属性；双重 LLM 调用：每个节点都会调用属性提取和摘要生成两个 prompt； 嵌入生成：为节点名称生成向量表示
                     self.clients, nodes, episode, previous_episodes, entity_types
                 ),
                 max_coroutines=self.max_coroutines,
             )
 
+            # 这个阶段主要是数据整合和持久化，不涉及核心的实体或关系提取。LLM 调用仅限于可选的社区更新功能，用于维护实体社区的摘要和描述；整个过程的重点是将前面阶段处理好的数据安全地保存到图数据库中。
             duplicate_of_edges = build_duplicate_of_edges(episode, now, node_duplicates)
 
             entity_edges = resolved_edges + invalidated_edges + duplicate_of_edges
 
-            episodic_edges = build_episodic_edges(nodes, episode.uuid, now)
+            episodic_edges = build_episodic_edges(nodes, episode.uuid, now) # Episode 边构建： 创建连接 Episode 节点和实体节点的边关系，建立内容与提取实体之间的可追溯链接。
 
             episode.entity_edges = [edge.uuid for edge in entity_edges]
 
             if not self.store_raw_episode_content:
                 episode.content = ''
-
+            # 这是核心的数据持久化操作，将所有处理好的节点和边关系批量保存到图数据库中。
             await add_nodes_and_edges_bulk(
                 self.driver, [episode], episodic_edges, hydrated_nodes, entity_edges, self.embedder
             )
@@ -558,7 +546,7 @@ class Graphiti:
             communities = []
             community_edges = []
 
-            # Update any communities
+            # Update any communities 社区更新
             if update_communities:
                 communities, community_edges = await semaphore_gather(
                     *[

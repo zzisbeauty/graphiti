@@ -59,8 +59,7 @@ async def main():
     # INITIALIZATION
     #################################################
     # Connect to Neo4j and set up Graphiti indices
-    # This is required before using other Graphiti
-    # functionality
+    # This is required before using other Graphiti functionality
     #################################################
 
     # Initialize Graphiti with Neo4j connection

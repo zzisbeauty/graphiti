@@ -10,7 +10,12 @@ import os
 import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, TypedDict, cast
+
+
+# from typing import Any, TypedDict, cast
+from typing import Any, cast  
+from typing_extensions import TypedDict
+
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from dotenv import load_dotenv
@@ -35,11 +40,30 @@ from graphiti_core.search.search_config_recipes import (
 from graphiti_core.search.search_filters import SearchFilters
 from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 
-load_dotenv()
+import sys
+
+def find_project_root(marker_files=('pyproject.toml', '.git', 'requirements.txt')):
+    import os
+    path = os.path.abspath(__file__)
+    while path != os.path.dirname(path):
+        if any(os.path.exists(os.path.join(path, marker)) for marker in marker_files):
+            return path
+        path = os.path.dirname(path)
+    raise RuntimeError("Project root not found.")
+
+project_root = find_project_root()
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    sys.path.insert(0, '/home/graphiti')
 
 
-DEFAULT_LLM_MODEL = 'gpt-4.1-mini'
+
+
+load_dotenv("/home/graphiti/mcp_server/.env")
+
+
 SMALL_LLM_MODEL = 'gpt-4.1-nano'
+DEFAULT_LLM_MODEL = 'gpt-4.1-mini'
 DEFAULT_EMBEDDER_MODEL = 'text-embedding-3-small'
 
 # Semaphore limit for concurrent Graphiti operations.
@@ -121,11 +145,18 @@ class Procedure(BaseModel):
     )
 
 
-ENTITY_TYPES: dict[str, BaseModel] = {
-    'Requirement': Requirement,  # type: ignore
-    'Preference': Preference,  # type: ignore
-    'Procedure': Procedure,  # type: ignore
-}
+# original enetity
+# ENTITY_TYPES: dict[str, BaseModel] = {
+#     'Requirement': Requirement,  # type: ignore
+#     'Preference': Preference,  # type: ignore
+#     'Procedure': Procedure,  # type: ignore
+# }
+
+
+# from mcp_server.self_entity_1 import ENTITY_TYPES as selfentity
+from self_entity_1 import ENTITY_TYPES
+# self entity
+# ENTITY_TYPES: selfentity
 
 
 # Type definitions for API responses
@@ -169,9 +200,7 @@ class StatusResponse(TypedDict):
 
 def create_azure_credential_token_provider() -> Callable[[], str]:
     credential = DefaultAzureCredential()
-    token_provider = get_bearer_token_provider(
-        credential, 'https://cognitiveservices.azure.com/.default'
-    )
+    token_provider = get_bearer_token_provider(credential, 'https://cognitiveservices.azure.com/.default')
     return token_provider
 
 
@@ -188,7 +217,6 @@ def create_azure_credential_token_provider() -> Callable[[], str]:
 # 3. Command line arguments (which override environment variables)
 class GraphitiLLMConfig(BaseModel):
     """Configuration for the LLM client.
-
     Centralizes all LLM-specific configuration parameters including API keys and model selection.
     """
 
@@ -801,9 +829,7 @@ async def add_memory(
                 logger.info(f"Episode '{name}' processed successfully")
             except Exception as e:
                 error_msg = str(e)
-                logger.error(
-                    f"Error processing episode '{name}' for group_id {group_id_str}: {error_msg}"
-                )
+                logger.error(f"Error processing episode '{name}' for group_id {group_id_str}: {error_msg}")
 
         # Initialize queue for this group_id if it doesn't exist
         if group_id_str not in episode_queues:

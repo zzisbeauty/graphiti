@@ -103,7 +103,8 @@ def node(context: dict[str, Any]) -> list[Message]:
     ]
 
 
-def nodes(context: dict[str, Any]) -> list[Message]:
+# 原始的，进行实体去重的方法
+def _nodes(context: dict[str, Any]) -> list[Message]:
     return [
         Message(
             role='system',
@@ -166,6 +167,118 @@ def nodes(context: dict[str, Any]) -> list[Message]:
         """,
         ),
     ]
+
+
+# 简化后的英文版实体去重指令
+def __nodes(context: dict[str, Any]) -> list[Message]:
+    return [
+        Message(
+            role='system',
+            content='You are a helpful assistant that checks if extracted entities are duplicates of existing entities.',
+        ),
+        Message(
+            role='user',
+            content=f"""
+<PREVIOUS MESSAGES>
+{to_prompt_json([ep for ep in context['previous_episodes']], ensure_ascii=context.get('ensure_ascii', True), indent=2)}
+</PREVIOUS MESSAGES>
+
+<CURRENT MESSAGE>
+{context['episode_content']}
+</CURRENT MESSAGE>
+
+<ENTITIES>
+{to_prompt_json(context['extracted_nodes'], ensure_ascii=context.get('ensure_ascii', True), indent=2)}
+</ENTITIES>
+
+<EXISTING ENTITIES>
+{to_prompt_json(context['existing_nodes'], ensure_ascii=context.get('ensure_ascii', True), indent=2)}
+</EXISTING ENTITIES>
+
+Task:
+For each entity in ENTITIES, determine if it is a duplicate of any EXISTING ENTITY.
+- Only mark as duplicate if it refers to the same real-world object or concept.
+- Related or similar entities are NOT duplicates.
+
+Output:
+Return a list called entity_resolutions. For each entity, include:
+- id: the entity's id
+- name: the entity's name
+- duplicate_idx: the index of the existing entity it duplicates, or -1 if none
+"""
+        ),
+    ]
+
+
+
+# 翻译成中文的实体去重的方法
+def nodes(context: dict[str, Any]) -> list[Message]:
+    return [
+        Message(
+            role='system',
+            content='你是一个有帮助的助手，用于判断从对话中提取的实体是否与已有实体重复。',
+        ),
+        Message(
+            role='user',
+            content=f"""
+        <PREVIOUS MESSAGES>
+        {to_prompt_json([ep for ep in context['previous_episodes']], ensure_ascii=context.get('ensure_ascii', True), indent=2)}
+        </PREVIOUS MESSAGES>
+        <CURRENT MESSAGE>
+        {context['episode_content']}
+        </CURRENT MESSAGE>
+        
+        
+        以下实体是从当前消息中提取的。
+        每个实体在 ENTITIES 中以 JSON 对象表示，结构如下：
+        {{
+            id: 实体的整数 ID,
+            name: "实体名称",
+            entity_type: "实体的本体分类",
+            entity_type_description: "实体类型所代表的描述",
+            duplication_candidates: [
+                {{
+                    idx: 候选实体的整数索引,
+                    name: "候选实体名称",
+                    entity_type: "候选实体的本体分类",
+                    ...<其他附加属性>
+                }}
+            ]
+        }}
+        
+        <ENTITIES>
+        {to_prompt_json(context['extracted_nodes'], ensure_ascii=context.get('ensure_ascii', True), indent=2)}
+        </ENTITIES>
+        
+        <EXISTING ENTITIES>
+        {to_prompt_json(context['existing_nodes'], ensure_ascii=context.get('ensure_ascii', True), indent=2)}
+        </EXISTING ENTITIES>
+
+        对于上述每个实体，请判断该实体是否与任何已有实体重复。
+
+        实体仅在**指向相同真实世界对象或概念**时才被视为重复。
+
+        不要将以下情况标记为重复：
+        - 它们相关但不同。
+        - 名称或用途相似，但指向不同实例或概念。
+
+        任务：
+        你的输出应该是一个名为 entity_resolutions 的列表，其中包含每个实体的条目。
+        
+        对于每个实体，返回实体的 id 作为 id，实体的名称作为 name，以及 duplicate_idx 作为整数。
+        
+        - 如果某个实体与已有实体重复，返回它重复的候选实体的 idx。
+        - 如果某个实体没有重复的已有实体，返回 -1 作为 duplication_idx。
+        """,
+        ),
+    ]
+
+
+
+
+
+
+
 
 
 def node_list(context: dict[str, Any]) -> list[Message]:
