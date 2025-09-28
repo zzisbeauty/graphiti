@@ -41,6 +41,7 @@ from graphiti_core.search.search_config import SearchResults
 from graphiti_core.search.search_config_recipes import EDGE_HYBRID_SEARCH_RRF
 from graphiti_core.search.search_filters import SearchFilters
 from graphiti_core.utils.datetime_utils import ensure_utc, utc_now
+from graphiti_core.utils.maintenance.dedup_helpers import _normalize_string_exact
 
 logger = logging.getLogger(__name__)
 
@@ -63,32 +64,6 @@ def build_episodic_edges(
     logger.debug(f'Built episodic edges: {episodic_edges}')
 
     return episodic_edges
-
-
-def build_duplicate_of_edges(
-    episode: EpisodicNode,
-    created_at: datetime,
-    duplicate_nodes: list[tuple[EntityNode, EntityNode]],
-) -> list[EntityEdge]:
-    is_duplicate_of_edges: list[EntityEdge] = []
-    for source_node, target_node in duplicate_nodes:
-        if source_node.uuid == target_node.uuid:
-            continue
-
-        is_duplicate_of_edges.append(
-            EntityEdge(
-                source_node_uuid=source_node.uuid,
-                target_node_uuid=target_node.uuid,
-                name='IS_DUPLICATE_OF',
-                group_id=episode.group_id,
-                fact=f'{source_node.name} is a duplicate of {target_node.name}',
-                episodes=[episode.uuid],
-                created_at=created_at,
-                valid_at=created_at,
-            )
-        )
-
-    return is_duplicate_of_edges
 
 
 def build_community_edges(
@@ -422,6 +397,19 @@ async def resolve_extracted_edge(
 ) -> tuple[EntityEdge, list[EntityEdge], list[EntityEdge]]:
     if len(related_edges) == 0 and len(existing_edges) == 0:
         return extracted_edge, [], []
+
+    # Fast path: if the fact text and endpoints already exist verbatim, reuse the matching edge.
+    normalized_fact = _normalize_string_exact(extracted_edge.fact)
+    for edge in related_edges:
+        if (
+            edge.source_node_uuid == extracted_edge.source_node_uuid
+            and edge.target_node_uuid == extracted_edge.target_node_uuid
+            and _normalize_string_exact(edge.fact) == normalized_fact
+        ):
+            resolved = edge
+            if episode is not None and episode.uuid not in resolved.episodes:
+                resolved.episodes.append(episode.uuid)
+            return resolved, [], []
 
     start = time()
 
