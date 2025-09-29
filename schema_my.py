@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field  
 from typing import List, Optional  
 
+# class Person(BaseModel):  
+#     """作者/讲者或自己，用于资源归属与复习"""  
+#     person_name: str = Field(description="姓名")  
+#     role: str = Field(description="角色（作者/讲者/自己）")  
+#     department: Optional[str] = Field(None, description="部门/小组")
+
 
 class Concept(BaseModel):  
     """核心概念/知识点。知识关联放在实体属性上，便于快速检索相关概念。"""  
@@ -43,14 +49,6 @@ class Review(BaseModel):
     learning_advice: Optional[str] = Field(None, description="学习建议")  
 
 
-class Person(BaseModel):  
-    """作者/讲者或自己，用于资源归属与复习"""  
-    person_name: str = Field(description="姓名")  
-    role: str = Field(description="角色（作者/讲者/自己）")  
-    department: Optional[str] = Field(None, description="部门/小组")
-
-
-
 class MentionsEdge(BaseModel):  
     """Note → Concept，笔记中提到的知识点"""  
     evidence: str = Field(description="证据")  
@@ -73,15 +71,25 @@ class ReviewedAtEdge(BaseModel):
 # CREATED_BY 和 ABOUT 关系无需额外属性，使用默认的 EntityEdge 即可
 
 
-
 entity_types = {  
     'Concept': Concept,  
     'Note': Note,  
     'Resource': Resource,  
-    'Review': Review,  
-    'Person': Person  
+    'Review': Review,    
 }  
-  
+
+
+
+# entity_types = {  
+#     'Concept': Concept,  
+#     'Note': Note,  
+#     'Resource': Resource,  
+#     'Review': Review,  
+#     'Person': Person  
+# }  
+
+
+
 edge_types = {  
     'MENTIONS': MentionsEdge,  
     'DERIVED_FROM': DerivedFromEdge,  
@@ -89,7 +97,9 @@ edge_types = {
     'REVIEWED_AT': ReviewedAtEdge,  
     # CREATED_BY 和 ABOUT 使用默认边类型  
 }  
-  
+
+
+
 # result = await graphiti.add_episode(  
 #     name='Knowledge Episode',  
 #     episode_body=episode_content,  

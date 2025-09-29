@@ -12,14 +12,6 @@ from graph_service.config import ZepEnvDep
 from graph_service.dto import FactResult
 
 
-
-from graphiti_core.utils.ontology_utils.entity_types_utils import validate_entity_types  
-# from graphiti_core.helpers import validate_excluded_entity_types  
-from graphiti_core.utils.bulk_utils import RawEpisode  
-from graphiti_core.errors import EntityTypeValidationError  
-
-
-
 """ Graphiti REST API 服务的核心组件，它继承自 graphiti_core 的 Graphiti 类，为 REST API 提供了扩展的图数据库操作功能
 ZepGraphiti 类本质上是对核心 Graphiti 类的 REST API 特定扩展，添加了 HTTP 错误处理、批量删除操作和 FastAPI 集成功能。它作为 REST API 服务层和 Graphiti 核心库之间的桥梁，提供了适合 Web API 使用的接口。
 
@@ -40,45 +32,13 @@ ZepGraphiti 类本质上是对核心 Graphiti 类的 REST API 特定扩展，添
 
 
 
-
-
-""" 此文件对此类进行一些扩展，新增一些我能想到的自定义的功能
-1. 实现自定义 schema 的导入
-"""
-
-
 logger = logging.getLogger(__name__)
 
 
-# import datetime
-from datetime import datetime
-from typing import Dict, Optional, List  
-from graphiti_core.nodes import EpisodeType  
-from pydantic import BaseModel, Field, create_model
+class ZepGraphiti(Graphiti):
+    def __init__(self, uri: str, user: str, password: str, llm_client: LLMClient | None = None):
+        super().__init__(uri, user, password, llm_client)
 
-
-
-# 自定义 schema
-# from server.entities.base_entity import ENTITY_TYPES
-
-
-from datetime import datetime  
-from pydantic import BaseModel  
-from graphiti_core.nodes import EpisodeType  
-from typing import Dict, Optional, List, Any, Type
-
-
-class ZepGraphiti(Graphiti):  
-    def __init__(self, uri: str, user: str, password: str, llm_client: LLMClient | None = None):  
-        super().__init__(uri, user, password, llm_client)  
-      
-    def get_entity_types_from_schema(self, entity_schema: Dict[str, Type[BaseModel]] | None = None):  
-        """根据客户端传入的 schema 获取实体类型配置"""  
-        return entity_schema if entity_schema is not None else None
-
-  
-
-    # 固有已经实现的 API 功能
 
     async def save_entity_node(self, name: str, uuid: str, group_id: str, summary: str = ''):
         new_node = EntityNode(
@@ -126,11 +86,6 @@ class ZepGraphiti(Graphiti):
             await episode.delete(self.driver)
         except NodeNotFoundError as e:
             raise HTTPException(status_code=404, detail=e.message) from e
-
-
-
-
-
 
 
 async def get_graphiti(settings: ZepEnvDep):

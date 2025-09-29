@@ -1,21 +1,8 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks  
-from pydantic import BaseModel, Field  
-from typing import Optional, Dict, Any, List  
-from datetime import datetime, timezone  
-import asyncio  
-import json  
-import logging  
-from contextlib import asynccontextmanager  
-  
-from graphiti_core import Graphiti  
-from graphiti_core.nodes import EpisodeType  
-from graphiti_core.llm_client.openai_client import OpenAIClient  
-from graphiti_core.embedder.openai import OpenAIEmbedder  
-
-
-import os, sys
+# main.py  
+import sys
 
 def find_project_root(marker_files=('pyproject.toml', '.git', 'requirements.txt')):
+    import os
     path = os.path.abspath(__file__)
     while path != os.path.dirname(path):
         if any(os.path.exists(os.path.join(path, marker)) for marker in marker_files):
@@ -26,9 +13,28 @@ def find_project_root(marker_files=('pyproject.toml', '.git', 'requirements.txt'
 project_root = find_project_root()
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+    sys.path.insert(0, '/home/graphiti')
 
 
-from configs import get_settings  
+from servers.configs import get_settings  
+from servers.model_config import llm_client, embedder  # 导入您配置好的客户端  
+from servers.entities.base_entity import ENTITY_TYPES  # 导入您的自定义实体类型  
+  
+
+
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks  
+from pydantic import BaseModel, Field  
+from typing import Optional, Dict, Any, List  
+from datetime import datetime, timezone  
+import asyncio  
+import json
+import logging  
+from contextlib import asynccontextmanager  
+  
+from graphiti_core import Graphiti  
+from graphiti_core.nodes import EpisodeType  
+
 
 
 # 配置日志  
@@ -47,50 +53,37 @@ class AddEpisodeRequest(BaseModel):
     source: str = Field(default="text", description="数据类型: json, message, text")  
     source_description: str = Field(default="", description="数据来源描述")  
     group_id: str = Field(..., description="分组ID")  
-    entity_types: Optional[List[str]] = Field(None, description="自定义实体类型")  
-    edge_types: Optional[List[str]] = Field(None, description="自定义边类型")  
+    entity_types: Optional[List[str]] = Field(None, description="自定义实体类型名称列表")  
     uuid: Optional[str] = Field(None, description="可选的UUID")  
   
 class EpisodeResponse(BaseModel):  
     status: str  
     message: str  
     episode_id: Optional[str] = None  
-  
+
+
+
+
 # 应用生命周期管理  
 @asynccontextmanager  
 async def lifespan(app: FastAPI):  
     # 启动时初始化  
     global graphiti_client  
     settings = get_settings()  
-      
     try:  
-        # 初始化 LLM 客户端  
-        llm_client = OpenAIClient(  
-            api_key=settings.openai_api_key,  
-            model=settings.model_name or "gpt-4",  
-            base_url=settings.openai_base_url  
-        )  
-          
-        # 初始化 Embedder 客户端  
-        embedder = OpenAIEmbedder(  
-            api_key=settings.openai_api_key,  
-            model=settings.embedding_model_name or "text-embedding-ada-002"  
-        )  
-          
-        # 初始化 Graphiti 客户端  
+        # 使用您预配置的客户端直接初始化 Graphiti  
         graphiti_client = Graphiti(  
             uri=settings.neo4j_uri,  
             user=settings.neo4j_user,  
             password=settings.neo4j_password,  
-            llm_client=llm_client,  
-            embedder=embedder,  
+            llm_client=llm_client,  # 使用您的预配置 LLM 客户端  
+            embedder=embedder,      # 使用您的预配置 Embedder 客户端  
             max_coroutines=settings.semaphore_limit  
         )  
-          
         # 构建索引和约束  
         await graphiti_client.build_indices_and_constraints()  
         logger.info("Graphiti 客户端初始化成功")  
-          
+        logger.info(f"使用自定义实体类型: {list(ENTITY_TYPES.keys())}")  
     except Exception as e:  
         logger.error(f"初始化 Graphiti 客户端失败: {e}")  
         raise  
@@ -108,37 +101,98 @@ app = FastAPI(
     version="1.0.0",  
     lifespan=lifespan  
 )  
-  
+
+
+
 # 队列处理函数  
 async def process_episode_queue(group_id: str):  
     """处理特定 group_id 的队列"""  
     global episode_queues, queue_workers  
-      
+
     queue = episode_queues[group_id]  
     queue_workers[group_id] = True  
-      
+
     try:  
-        while True:  
-            try:  
-                episode_task = await asyncio.wait_for(queue.get(), timeout=1.0)  
-                await episode_task()  
-                queue.task_done()  
-            except asyncio.TimeoutError:  
-                # 检查队列是否为空，如果为空则退出  
-                if queue.empty():  
-                    break  
+        while True:
+            try:
+                episode_task = await asyncio.wait_for(queue.get(), timeout=1.0)
+                await episode_task()
+                queue.task_done()
+            except asyncio.TimeoutError:
+                if queue.empty():
+                    break
             except Exception as e:  
                 logger.error(f"处理队列 {group_id} 时出错: {e}")  
     finally:  
         queue_workers[group_id] = False  
         logger.info(f"队列处理器 {group_id} 已停止")  
-  
-# 数据导入端点  
+
+
+
+# 同步阻塞
+@app.post("/add_episode_sync", response_model=EpisodeResponse)  
+async def add_episode_sync(request: AddEpisodeRequest):  
+    """ 同步处理 Episode，直接返回处理结果 """
+    global graphiti_client
+
+    if not graphiti_client:
+        raise HTTPException(status_code=500, detail="Graphiti 客户端未初始化")
+
+    try:
+        # 直接调用 graphiti_client.add_episode，不使用队列
+        source_type = EpisodeType.text
+        if request.source.lower() == "message":
+            source_type = EpisodeType.message
+        elif request.source.lower() == "json":
+            source_type = EpisodeType.json
+
+        # 准备自定义实体类型
+        entity_types = None
+        if request.entity_types:
+            entity_types = {
+                name: entity_class
+                for name, entity_class in ENTITY_TYPES.items() if name in request.entity_types
+            }
+        else: 
+            entity_types = ENTITY_TYPES
+
+        logger.info(f"开始同步处理 Episode: {request.name}")
+
+        # 直接调用，不使用队列
+        result = await graphiti_client.add_episode(
+            name=request.name,
+            episode_body=request.episode_body,
+            source=source_type,
+            source_description=request.source_description,
+            group_id=request.group_id,
+            uuid=request.uuid,
+            reference_time=datetime.now(timezone.utc),
+            entity_types=entity_types
+        )
+
+        logger.info(f"Episode {request.name} 同步处理完成")
+
+        return EpisodeResponse(
+            status="completed",
+            message=f"Episode '{request.name}' 处理完成",
+            episode_id=result.episode.uuid
+        )
+
+    except Exception as e:
+        logger.error(f"同步处理 Episode 时出错: {e}")  
+        raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
+
+
+
+
+
+
+
+# 数据导入端点   -   异步非阻塞
 @app.post("/add_episode", response_model=EpisodeResponse)  
 async def add_episode(request: AddEpisodeRequest, background_tasks: BackgroundTasks):  
     """  
     添加 Episode 到知识图谱  
-      
     支持三种数据类型：  
     - text: 纯文本  
     - json: JSON 结构化数据  
@@ -148,7 +202,6 @@ async def add_episode(request: AddEpisodeRequest, background_tasks: BackgroundTa
       
     if not graphiti_client:  
         raise HTTPException(status_code=500, detail="Graphiti 客户端未初始化")  
-      
     try:  
         # 验证输入  
         if not request.episode_body.strip():  
@@ -161,25 +214,31 @@ async def add_episode(request: AddEpisodeRequest, background_tasks: BackgroundTa
         elif request.source.lower() == "json":  
             source_type = EpisodeType.json  
         elif request.source.lower() == "text":  
-            source_type = EpisodeType.text  
+            source_type = EpisodeType.text
         else:  
             raise HTTPException(status_code=400, detail=f"不支持的数据类型: {request.source}")  
-          
+
         # 定义处理函数  
         async def process_episode():  
             try:  
                 logger.info(f"开始处理 Episode: {request.name}, Group: {request.group_id}")  
                   
-                # 准备自定义 schema  
+                # 准备自定义实体类型  
                 entity_types = None  
-                edge_types = None  
-                edge_type_map = None  
-                  
                 if request.entity_types:  
-                    # 这里可以根据需要扩展自定义实体类型的处理逻辑  
-                    logger.info(f"使用自定义实体类型: {request.entity_types}")  
-                  
-                # 调用 Graphiti 核心方法  
+                    # 根据请求中的实体类型名称，从 ENTITY_TYPES 中筛选  
+                    entity_types = {  
+                        name: entity_class   
+                        for name, entity_class in ENTITY_TYPES.items()   
+                        if name in request.entity_types  
+                    }  
+                    logger.info(f"使用指定的实体类型: {list(entity_types.keys())}")  
+                else:  
+                    # 使用所有预定义的实体类型  
+                    entity_types = ENTITY_TYPES  
+                    logger.info(f"使用所有预定义实体类型: {list(entity_types.keys())}")  
+
+                # 调用 Graphiti 核心方法
                 result = await graphiti_client.add_episode(  
                     name=request.name,  
                     episode_body=request.episode_body,  
@@ -188,9 +247,7 @@ async def add_episode(request: AddEpisodeRequest, background_tasks: BackgroundTa
                     group_id=request.group_id,  
                     uuid=request.uuid,  
                     reference_time=datetime.now(timezone.utc),  
-                    entity_types=entity_types,  
-                    edge_types=edge_types,  
-                    edge_type_map=edge_type_map  
+                    entity_types=entity_types  # 使用您的自定义实体类型  
                 )  
                   
                 logger.info(f"Episode {request.name} 处理成功")  
@@ -224,7 +281,25 @@ async def add_episode(request: AddEpisodeRequest, background_tasks: BackgroundTa
         logger.error(f"添加 Episode 时出错: {e}")  
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {str(e)}")  
   
-# 健康检查端点  
+
+
+
+  
+# 获取可用实体类型端点  
+@app.get("/entity_types")  
+async def get_entity_types():  
+    """获取所有可用的自定义实体类型"""  
+    return {  
+        "entity_types": list(ENTITY_TYPES.keys()),  
+        "descriptions": {  
+            name: entity_class.__doc__ or "无描述"   
+            for name, entity_class in ENTITY_TYPES.items()  
+        }  
+    }  
+  
+
+
+
 @app.get("/health")  
 async def health_check():  
     """健康检查"""  
@@ -232,16 +307,20 @@ async def health_check():
         raise HTTPException(status_code=503, detail="Graphiti 客户端未初始化")  
       
     try:  
-        # 检查数据库连接  
-        await graphiti_client.driver.verify_connectivity()  
+        # 正确的 Neo4j 连接验证方法  
+        await graphiti_client.driver.client.verify_connectivity()  
         return {  
             "status": "healthy",  
             "timestamp": datetime.now(timezone.utc).isoformat(),  
-            "graphiti_initialized": graphiti_client is not None  
+            "graphiti_initialized": graphiti_client is not None,  
+            "available_entity_types": list(ENTITY_TYPES.keys())  
         }  
     except Exception as e:  
-        raise HTTPException(status_code=503, detail=f"服务不健康: {str(e)}")  
-  
+        raise HTTPException(status_code=503, detail=f"服务不健康: {str(e)}")
+
+
+
+
 if __name__ == "__main__":  
     import uvicorn  
     uvicorn.run(app, host="0.0.0.0", port=8000)

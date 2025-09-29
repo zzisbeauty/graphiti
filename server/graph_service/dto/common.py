@@ -26,3 +26,34 @@ class Message(BaseModel):
     source_description: str = Field(
         default='', description='The description of the source of the message'
     )
+
+
+
+
+# 熙增 专门处理 JSON 数据的封装响应
+from typing import Optional, Dict, Any, List
+
+class DataProcessingResult(BaseModel):
+    """数据处理结果响应"""
+    message: str
+    success: bool
+    episodes_processed: int
+    total_nodes_created: int
+    total_edges_created: int
+  
+class BulkDataProcessingResult(BaseModel):
+    """批量数据处理结果响应"""  
+    message: str 
+    success: bool
+    episodes_processed: int  
+    total_nodes_created: int  
+    total_edges_created: int  
+    processed_items: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# 新增 专门处理  schema 的响应
+class SchemaRegistrationResult(BaseModel):  
+    """Schema 注册结果响应"""  
+    message: str  
+    success: bool  
+    registered_schemas: List[str]

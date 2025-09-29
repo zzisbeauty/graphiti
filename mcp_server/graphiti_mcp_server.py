@@ -187,8 +187,7 @@ def create_azure_credential_token_provider() -> Callable[[], str]:
 # 2. Environment variables (loaded via load_dotenv())
 # 3. Command line arguments (which override environment variables)
 class GraphitiLLMConfig(BaseModel):
-    """Configuration for the LLM client.
-
+    """ Configuration for the LLM client.
     Centralizes all LLM-specific configuration parameters including API keys and model selection.
     """
 
@@ -290,7 +289,6 @@ class GraphitiLLMConfig(BaseModel):
 
     def create_client(self) -> LLMClient:
         """Create an LLM client based on this configuration.
-
         Returns:
             LLMClient instance
         """
