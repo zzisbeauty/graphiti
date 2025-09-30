@@ -40,7 +40,7 @@ async def test_add_episode():
         uri="bolt://192.168.1.6:7689",  
         user="neo4j",   
         password="aa1230.aa2",  
-        llm_client=llm_client,  # 传入配置好的 LLM 客户端 
+        llm_client=llm_client  # 传入配置好的 LLM 客户端 
         embedder=embedder 
     )  
       
