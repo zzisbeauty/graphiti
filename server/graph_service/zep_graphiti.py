@@ -1,5 +1,6 @@
 import logging
-from typing import Annotated
+from pydantic import BaseModel  
+from typing import Annotated, Dict, Type  
 
 from fastapi import Depends, HTTPException
 from graphiti_core import Graphiti  # type: ignore
@@ -11,12 +12,22 @@ from graphiti_core.nodes import EntityNode, EpisodicNode  # type: ignore
 from graph_service.config import ZepEnvDep
 from graph_service.dto import FactResult
 
+
+
 logger = logging.getLogger(__name__)
 
 
-class ZepGraphiti(Graphiti):
-    def __init__(self, uri: str, user: str, password: str, llm_client: LLMClient | None = None):
-        super().__init__(uri, user, password, llm_client)
+
+
+
+class ZepGraphiti(Graphiti):  
+    def __init__(self, uri: str, user: str, password: str, llm_client: LLMClient | None = None):  
+        super().__init__(uri, user, password, llm_client)  
+    
+    # change - 3 这里其实和 change-2同步，因为change2要用到此方法
+    # new """根据客户端传入的 schema 获取实体类型配置"""  
+    def get_entity_types_from_schema(self, entity_schema: Dict[str, Type[BaseModel]] | None = None):  
+        return entity_schema if entity_schema is not None else None
 
     async def save_entity_node(self, name: str, uuid: str, group_id: str, summary: str = ''):
         new_node = EntityNode(

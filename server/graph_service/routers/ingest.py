@@ -48,11 +48,44 @@ async def lifespan(_: FastAPI):
 router = APIRouter(lifespan=lifespan)
 
 
-@router.post('/messages', status_code=status.HTTP_202_ACCEPTED)
-async def add_messages(
-    request: AddMessagesRequest,
-    graphiti: ZepGraphitiDep,
-):
+# @router.post('/messages', status_code=status.HTTP_202_ACCEPTED)
+# async def add_messages(
+#     request: AddMessagesRequest,
+#     graphiti: ZepGraphitiDep,
+# ):
+#     async def add_messages_task(m: Message):
+#         await graphiti.add_episode(
+#             uuid=m.uuid,
+#             group_id=request.group_id,
+#             name=m.name,
+#             episode_body=f'{m.role or ""}({m.role_type}): {m.content}',
+#             reference_time=m.timestamp,
+#             source=EpisodeType.message,
+#             source_description=m.source_description,
+#         )
+
+#     for m in request.messages:
+#         await async_worker.queue.put(partial(add_messages_task, m))
+
+#     return Result(message='Messages added to processing queue', success=True)
+
+
+
+# change - 2 ；  注意 zep_graphiti 标注的 change-3
+from pydantic import BaseModel
+from typing import Dict, Type, Optional  
+from graph_service.utils.schema_utils import deserialize_entity_schema
+
+
+@router.post('/messages', status_code=status.HTTP_202_ACCEPTED)  
+async def add_messages(  
+    request: AddMessagesRequest,  
+    graphiti: ZepGraphitiDep,  
+):  
+    # 1. 使用 deserialize_entity_schema 处理客户端传入的 JSON schema  
+    deserialized_schema = deserialize_entity_schema(request.entity_schema)  
+    # 2. 通过 ZepGraphiti 的方法获取最终的实体类型配置 ； 此步骤获取被设置进入 graphiti 中的 schema
+    entity_types = graphiti.get_entity_types_from_schema(deserialized_schema)  
     async def add_messages_task(m: Message):
         await graphiti.add_episode(
             uuid=m.uuid,
@@ -62,12 +95,42 @@ async def add_messages(
             reference_time=m.timestamp,
             source=EpisodeType.message,
             source_description=m.source_description,
+            entity_types=entity_types  # 3. 传递给 Graphiti 核心进行实体提取
         )
 
     for m in request.messages:
-        await async_worker.queue.put(partial(add_messages_task, m))
-
+        await async_worker.queue.put(partial(add_messages_task, m))  
+  
     return Result(message='Messages added to processing queue', success=True)
+
+""" # 传入的数据示例
+{  
+  "group_id": "learning_session_1",  
+  "messages": [...],  
+  "entity_schema": {  
+    "Note": {
+      "description": "用户的学习笔记或记录",  
+      "fields": {
+        "title": {"type": "str", "description": "标题"},  
+        "content": {"type": "str", "description": "内容"}  
+      }  
+    },  
+    "Concept": {  
+      "description": "具体的概念、术语或知识点",  
+      "fields": {  
+        "concept_name": {"type": "str", "description": "概念名称"},  
+        "understanding_level": {"type": "str", "description": "理解程度"}  
+      }  
+    }  
+  }  
+}
+"""
+
+
+
+
+
+
 
 
 @router.post('/entity-node', status_code=status.HTTP_201_CREATED)

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     neo4j_user: str
     neo4j_password: str
 
-    model_config = SettingsConfigDict(env_file='.env', extra='ignore')
+    model_config = SettingsConfigDict(env_file='/home/graphiti/server/.env', extra='ignore')
 
 
 @lru_cache
