@@ -35,7 +35,19 @@ from graphiti_core.search.search_config_recipes import (
 from graphiti_core.search.search_filters import SearchFilters
 from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 
-load_dotenv()
+
+# self define settings
+from entities.demo import ENTITY_TYPES  
+
+# default enetity settings
+# ENTITY_TYPES: dict[str, BaseModel] = {
+#     'Requirement': Requirement,  # type: ignore
+#     'Preference': Preference,  # type: ignore
+#     'Procedure': Procedure,  # type: ignore
+# }
+
+
+load_dotenv('/home/graphiti/mcp_server/.env')
 
 
 DEFAULT_LLM_MODEL = 'gpt-4.1-mini'
@@ -50,9 +62,7 @@ SEMAPHORE_LIMIT = int(os.getenv('SEMAPHORE_LIMIT', 10))
 
 class Requirement(BaseModel):
     """A Requirement represents a specific need, feature, or functionality that a product or service must fulfill.
-
-    Always ensure an edge is created between the requirement and the project it belongs to, and clearly indicate on the
-    edge that the requirement is a requirement.
+    Always ensure an edge is created between the requirement and the project it belongs to, and clearly indicate on the edge that the requirement is a requirement.
 
     Instructions for identifying and extracting requirements:
     1. Look for explicit statements of needs or necessities ("We need X", "X is required", "X must have Y")
@@ -66,14 +76,8 @@ class Requirement(BaseModel):
     9. Categorize requirements appropriately based on their domain or function
     """
 
-    project_name: str = Field(
-        ...,
-        description='The name of the project to which the requirement belongs.',
-    )
-    description: str = Field(
-        ...,
-        description='Description of the requirement. Only use information mentioned in the context to write this description.',
-    )
+    project_name: str = Field(..., description='The name of the project to which the requirement belongs.',)
+    description: str = Field(..., description='Description of the requirement. Only use information mentioned in the context to write this description.',)
 
 
 class Preference(BaseModel):
@@ -121,11 +125,7 @@ class Procedure(BaseModel):
     )
 
 
-ENTITY_TYPES: dict[str, BaseModel] = {
-    'Requirement': Requirement,  # type: ignore
-    'Preference': Preference,  # type: ignore
-    'Procedure': Procedure,  # type: ignore
-}
+
 
 
 # Type definitions for API responses
