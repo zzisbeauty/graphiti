@@ -11,12 +11,25 @@ from graphiti_core.nodes import EntityNode, EpisodicNode  # type: ignore
 from graph_service.config import ZepEnvDep
 from graph_service.dto import FactResult
 
+
+from graphiti_core.embedder import EmbedderClient  
+
 logger = logging.getLogger(__name__)
 
 
 class ZepGraphiti(Graphiti):
-    def __init__(self, uri: str, user: str, password: str, llm_client: LLMClient | None = None):
-        super().__init__(uri, user, password, llm_client)
+    # def __init__(self, uri: str, user: str, password: str, llm_client: LLMClient | None = None):
+    #     super().__init__(uri, user, password, llm_client)
+
+    def __init__(  
+        self,   
+        uri: str,   
+        user: str,   
+        password: str,   
+        llm_client: LLMClient | None = None,  
+        embedder: EmbedderClient | None = None  # 添加这个参数  
+    ):  
+        super().__init__(uri, user, password, llm_client, embedder=embedder)  # 传递给父类
 
     async def save_entity_node(self, name: str, uuid: str, group_id: str, summary: str = ''):
         new_node = EntityNode(
@@ -71,12 +84,9 @@ class ZepGraphiti(Graphiti):
             raise HTTPException(status_code=404, detail=e.message) from e
 
 
-async def get_graphiti(settings: ZepEnvDep):
-    client = ZepGraphiti(
-        uri=settings.neo4j_uri,
-        user=settings.neo4j_user,
-        password=settings.neo4j_password,
-    )
+async def _get_graphiti(settings: ZepEnvDep): # original
+    client = ZepGraphiti(uri=settings.neo4j_uri, user=settings.neo4j_user, password=settings.neo4j_password,)
+
     if settings.openai_base_url is not None:
         client.llm_client.config.base_url = settings.openai_base_url
     if settings.openai_api_key is not None:
@@ -88,6 +98,59 @@ async def get_graphiti(settings: ZepEnvDep):
         yield client
     finally:
         await client.close()
+
+
+from openai import AsyncOpenAI  
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig  
+from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient  
+from graphiti_core.llm_client.config import LLMConfig  
+  
+async def get_graphiti(settings: ZepEnvDep):  
+    # 1. 创建 embedding 客户端  
+    embedding_client = AsyncOpenAI(  
+        api_key=settings.embedding_api_key,  
+        base_url=settings.embedding_base_url  
+    )  
+      
+    embedder_config = OpenAIEmbedderConfig(  
+        api_key=settings.embedding_api_key,  
+        base_url=settings.embedding_base_url,  
+        embedding_model=settings.embedding_model_name or 'text-embedding-3-small'  
+    )  
+      
+    embedder = OpenAIEmbedder(config=embedder_config, client=embedding_client)  
+      
+    # 2. 创建 LLM 客户端  
+    llm_client_instance = AsyncOpenAI(  
+        api_key=settings.openai_api_key,  
+        base_url=settings.openai_base_url  
+    )  
+      
+    llm_config = LLMConfig(  
+        api_key=settings.openai_api_key,  
+        base_url=settings.openai_base_url,  
+        model=settings.model_name,  
+        small_model=settings.model_name,  
+        temperature=0.0  
+    )  
+      
+    llm_client = OpenAIGenericClient(config=llm_config, client=llm_client_instance)  
+      
+    # 3. 创建 ZepGraphiti,传入 embedder  
+    client = ZepGraphiti(  
+        uri=settings.neo4j_uri,  
+        user=settings.neo4j_user,  
+        password=settings.neo4j_password,  
+        llm_client=llm_client,  
+        embedder=embedder  # 现在可以传入了  
+    )  
+  
+    try:  
+        yield client  
+    finally:  
+        await client.close()
+
+
 
 
 async def initialize_graphiti(settings: ZepEnvDep):
