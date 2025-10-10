@@ -10,6 +10,24 @@ from graph_service.dto import AddEntityNodeRequest, AddMessagesRequest, Message,
 from graph_service.zep_graphiti import ZepGraphitiDep
 
 
+import sys
+def find_project_root(marker_files=('pyproject.toml', '.git', 'requirements.txt')):
+    import os
+    path = os.path.abspath(__file__)
+    while path != os.path.dirname(path):
+        if any(os.path.exists(os.path.join(path, marker)) for marker in marker_files):
+            return path
+        path = os.path.dirname(path)
+    raise RuntimeError("Project root not found.")
+
+project_root = find_project_root()
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    sys.path.insert(0, '/home/graphiti')
+
+
+
+
 class AsyncWorker:
     def __init__(self):
         self.queue = asyncio.Queue()
@@ -68,46 +86,15 @@ async def add_messages(request: AddMessagesRequest, graphiti: ZepGraphitiDep,):
     return Result(message='Messages added to processing queue', success=True)
 
 
-import sys
 
-def find_project_root(marker_files=('pyproject.toml', '.git', 'requirements.txt')):
-    import os
-    path = os.path.abspath(__file__)
-    while path != os.path.dirname(path):
-        if any(os.path.exists(os.path.join(path, marker)) for marker in marker_files):
-            return path
-        path = os.path.dirname(path)
-    raise RuntimeError("Project root not found.")
 
-project_root = find_project_root()
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-    sys.path.insert(0, '/home/graphiti')
 
-from mcp_server.entities.demo import *
 
-# @router.post('/messages', status_code=status.HTTP_202_ACCEPTED)  
-# async def add_messages(request: AddMessagesRequest,  graphiti: ZepGraphitiDep,):  
-#     async def add_messages_task(m: Message):  
-#         # 根据请求决定是否使用自定义实体  
-#         entity_types = ENTITY_TYPES if request.use_custom_entities else {}  
-#         await graphiti.add_episode(  
-#             uuid=m.uuid,  
-#             group_id=request.group_id,  
-#             name=m.name,  
-#             episode_body=f'{m.role or ""}({m.role_type}): {m.content}',  
-#             reference_time=m.timestamp,  
-#             source=EpisodeType.message,  
-#             source_description=m.source_description,  
-#             entity_types=entity_types,  # 添加此参数  
-#         )  
-#     for m in request.messages:  
-#         await async_worker.queue.put(partial(add_messages_task, m))  
-#     return Result(message='Messages added to processing queue', success=True)
 
 # todo 新增 schema 接口
 from datetime import datetime, timezone  
 from graph_service.dto.ingest import AddEpisodeWithSchemaRequest  # 添加导入  
+from mcp_server.entities.demo import * # 导入自定义  schema
 
 @router.post('/add-episode-with-schema', status_code=status.HTTP_202_ACCEPTED)  
 async def add_episode_with_schema(  
@@ -116,7 +103,6 @@ async def add_episode_with_schema(
 ):  
     async def process_episode():  
         entity_types = ENTITY_TYPES if request.use_custom_entities else {}  
-          
         await graphiti.add_episode(  
             name=request.name,  
             episode_body=request.episode_body,  
@@ -126,7 +112,6 @@ async def add_episode_with_schema(
             source=EpisodeType.text,  
             entity_types=entity_types,  
         )
-      
     await async_worker.queue.put(process_episode)  
     return Result(message='Episode queued for processing', success=True)
 
@@ -134,10 +119,7 @@ async def add_episode_with_schema(
 
 
 @router.post('/entity-node', status_code=status.HTTP_201_CREATED)
-async def add_entity_node(
-    request: AddEntityNodeRequest,
-    graphiti: ZepGraphitiDep,
-):
+async def add_entity_node(request: AddEntityNodeRequest, graphiti: ZepGraphitiDep,):
     node = await graphiti.save_entity_node(
         uuid=request.uuid,
         group_id=request.group_id,
@@ -145,6 +127,7 @@ async def add_entity_node(
         summary=request.summary,
     )
     return node
+
 
 
 @router.delete('/entity-edge/{uuid}', status_code=status.HTTP_200_OK)
