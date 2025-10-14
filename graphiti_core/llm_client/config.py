@@ -16,8 +16,8 @@ limitations under the License.
 
 from enum import Enum
 
-DEFAULT_MAX_TOKENS = 8192
-DEFAULT_TEMPERATURE = 1
+DEFAULT_MAX_TOKENS = 32000   # 输出的最大长度限制。用于控制模型输出的最大长度； 设置的越小，允许的输入就越多（如果启动模型服务时，设置的上下文一共有9000的情况下）
+DEFAULT_TEMPERATURE = 0.5
 
 
 class ModelSize(Enum):
@@ -26,14 +26,11 @@ class ModelSize(Enum):
 
 
 class LLMConfig:
-    """
-    Configuration class for the Language Learning Model (LLM).
+    """ Configuration class for the Language Learning Model (LLM).
 
     This class encapsulates the necessary parameters to interact with an LLM API,
-    such as OpenAI's GPT models. It stores the API key, model name, and base URL
-    for making requests to the LLM service.
+    such as OpenAI's GPT models. It stores the API key, model name, and base URL for making requests to the LLM service.
     """
-
     def __init__(
         self,
         api_key: str | None = None,
@@ -43,12 +40,9 @@ class LLMConfig:
         max_tokens: int = DEFAULT_MAX_TOKENS,
         small_model: str | None = None,
     ):
-        """
-        Initialize the LLMConfig with the provided parameters.
-
+        """ Initialize the LLMConfig with the provided parameters.
         Args:
-                api_key (str): The authentication key for accessing the LLM API.
-                                                This is required for making authorized requests.
+                api_key (str): The authentication key for accessing the LLM API. This is required for making authorized requests.
 
                 model (str, optional): The specific LLM model to use for generating responses.
                                                                 Defaults to "gpt-4.1-mini".

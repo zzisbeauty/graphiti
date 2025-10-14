@@ -302,13 +302,8 @@ async def resolve_extracted_edges(
         ]
     )
 
-    edge_invalidation_candidates: list[list[EntityEdge]] = [
-        result.edges for result in edge_invalidation_candidate_results
-    ]
-
-    logger.debug(
-        f'Related edges lists: {[(e.name, e.uuid) for edges_lst in related_edges_lists for e in edges_lst]}'
-    )
+    edge_invalidation_candidates: list[list[EntityEdge]] = [result.edges for result in edge_invalidation_candidate_results]
+    logger.debug(f'Related edges lists: {[(e.name, e.uuid) for edges_lst in related_edges_lists for e in edges_lst]}')
 
     # Build entity hash table
     uuid_entity_map: dict[str, EntityNode] = {entity.uuid: entity for entity in entities}
@@ -321,13 +316,9 @@ async def resolve_extracted_edges(
     custom_type_names = set(edge_types or {})
     for extracted_edge in extracted_edges:
         source_node = uuid_entity_map.get(extracted_edge.source_node_uuid)
-        target_node = uuid_entity_map.get(extracted_edge.target_node_uuid)
-        source_node_labels = (
-            source_node.labels + ['Entity'] if source_node is not None else ['Entity']
-        )
-        target_node_labels = (
-            target_node.labels + ['Entity'] if target_node is not None else ['Entity']
-        )
+        target_node = uuid_entity_map.get(extracted_edge.target_node_uuid)  # 系统在尝试获取边的 target_node_uuid 对应的实体时,发现该 UUID 不存在于 uuid_entity_map 中。
+        source_node_labels = (source_node.labels + ['Entity'] if source_node is not None else ['Entity'])
+        target_node_labels = (target_node.labels + ['Entity'] if target_node is not None else ['Entity'])
         label_tuples = [
             (source_label, target_label)
             for source_label in source_node_labels

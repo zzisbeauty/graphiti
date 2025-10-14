@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field  
 from typing import List, Optional  
-  
+
 # 您的实体定义  
 class Person(BaseModel):  
     """学习者或知识创作者，如作者、老师、同学等具体的人"""  
@@ -19,7 +19,7 @@ class Note(BaseModel):
     source: Optional[str] = Field(None, description="来源")  
     importance_mark: Optional[str] = Field(None, description="重点标记")  
     version: Optional[str] = Field(None, description="版本")  
-  
+
 class Concept(BaseModel):  
     """具体的概念、术语或知识点，如'并发'、'操作系统'、'机器学习'等"""  
     concept_id: Optional[str] = Field(None, description="概念ID")  
@@ -41,7 +41,7 @@ class Knowledge(BaseModel):
     actual_examples: Optional[List[str]] = Field(None, description="实际应用例子")  
     contradictions: Optional[List[str]] = Field(None, description="矛盾点")  
     version: Optional[str] = Field(None, description="版本")  
-  
+
 class LearningTarget(BaseModel):
     """具体的学习目标，如'掌握Python编程'、'理解操作系统原理'等"""  
     target_id: Optional[str] = Field(None, description="目标ID")  
@@ -80,7 +80,7 @@ class ErrorCorrection(BaseModel):
   
 
 
-# ENTITY_TYPES 定义  
+# ============ ENTITY_TYPES ==========
 ENTITY_TYPES: dict[str, type[BaseModel]] = {  
     'Person': Person,  
     'Note': Note,  

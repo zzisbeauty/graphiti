@@ -13,12 +13,9 @@ from graph_service.zep_graphiti import initialize_graphiti
 async def lifespan(_: FastAPI):  
     settings = get_settings()  
     await initialize_graphiti(settings)  
-      
     # 启动 AsyncWorker  
     await async_worker.start()  
-      
     yield  
-      
     # 关闭时停止 worker  
     await async_worker.stop()  
   
