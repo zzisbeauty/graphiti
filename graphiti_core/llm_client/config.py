@@ -16,7 +16,7 @@ limitations under the License.
 
 from enum import Enum
 
-DEFAULT_MAX_TOKENS = 8192
+DEFAULT_MAX_TOKENS = 32000   # 输出的最大长度限制。用于控制模型输出的最大长度； 设置的越小，允许的输入就越多（如果启动模型服务时，设置的上下文一共有9000的情况下）
 DEFAULT_TEMPERATURE = 1
 
 

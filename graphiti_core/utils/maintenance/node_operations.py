@@ -190,8 +190,15 @@ async def extract_nodes(
         if excluded_entity_types and entity_type_name in excluded_entity_types:
             logger.debug(f'Excluding entity "{extracted_entity.name}" of type "{entity_type_name}"')
             continue
-
+        
+        # original ，每个实体即使有被抽取的自定义实体，也会有 ENTITY，但是这其实不需要；
         labels: list[str] = list({'Entity', str(entity_type_name)})
+        # 改为如下实现：如果有自定义类型,只使用自定义类型;否则使用 Entity  ； 但是下方代码并未改变现状，是无效的，因此不使用
+        # if entity_type_name != 'Entity':  
+        #     labels: list[str] = [str(entity_type_name)]  
+        # else:  
+        #     labels: list[str] = ['Entity']
+
 
         new_node = EntityNode(
             name=extracted_entity.name,

@@ -722,8 +722,7 @@ class Graphiti:
                 # Create default edge type map
                 edge_type_map_default = (
                     {('Entity', 'Entity'): list(edge_types.keys())}
-                    if edge_types is not None
-                    else {('Entity', 'Entity'): []}
+                    if edge_types is not None else {('Entity', 'Entity'): []}
                 )
 
                 # Extract and resolve nodes

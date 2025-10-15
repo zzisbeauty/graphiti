@@ -28,24 +28,24 @@ from graphiti_core.llm_client.azure_openai_client import AzureOpenAILLMClient
 from graphiti_core.llm_client.config import LLMConfig
 from graphiti_core.llm_client.openai_client import OpenAIClient
 from graphiti_core.nodes import EpisodeType, EpisodicNode
-from graphiti_core.search.search_config_recipes import (
-    NODE_HYBRID_SEARCH_NODE_DISTANCE,
-    NODE_HYBRID_SEARCH_RRF,
-)
+from graphiti_core.search.search_config_recipes import (NODE_HYBRID_SEARCH_NODE_DISTANCE,NODE_HYBRID_SEARCH_RRF,)
 from graphiti_core.search.search_filters import SearchFilters
 from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 
-load_dotenv()
 
+import sys  
+from pathlib import Path  
+sys.path.insert(0, str(Path(__file__).parent.parent))  # 添加项目根目录到 Python 路径
 
-DEFAULT_LLM_MODEL = 'gpt-4.1-mini'
+load_dotenv('/app/.env')
+
 SMALL_LLM_MODEL = 'gpt-4.1-nano'
+DEFAULT_LLM_MODEL = 'gpt-4.1-mini'
 DEFAULT_EMBEDDER_MODEL = 'text-embedding-3-small'
 
 # Semaphore limit for concurrent Graphiti operations.
-# Decrease this if you're experiencing 429 rate limit errors from your LLM provider.
-# Increase if you have high rate limits.
-SEMAPHORE_LIMIT = int(os.getenv('SEMAPHORE_LIMIT', 10))
+# Decrease this if you're experiencing 429 rate limit errors from your LLM provider. Increase if you have high rate limits.
+SEMAPHORE_LIMIT = int(os.getenv('SEMAPHORE_LIMIT', 2))
 
 
 class Requirement(BaseModel):
@@ -121,11 +121,14 @@ class Procedure(BaseModel):
     )
 
 
-ENTITY_TYPES: dict[str, BaseModel] = {
-    'Requirement': Requirement,  # type: ignore
-    'Preference': Preference,  # type: ignore
-    'Procedure': Procedure,  # type: ignore
-}
+# ENTITY_TYPES: dict[str, BaseModel] = {
+#     'Requirement': Requirement,  # type: ignore
+#     'Preference': Preference,  # type: ignore
+#     'Procedure': Procedure,  # type: ignore
+# }
+
+# self define entity settings
+from selfconfigs.entities._demo import * 
 
 
 # Type definitions for API responses
@@ -169,9 +172,7 @@ class StatusResponse(TypedDict):
 
 def create_azure_credential_token_provider() -> Callable[[], str]:
     credential = DefaultAzureCredential()
-    token_provider = get_bearer_token_provider(
-        credential, 'https://cognitiveservices.azure.com/.default'
-    )
+    token_provider = get_bearer_token_provider(credential, 'https://cognitiveservices.azure.com/.default')
     return token_provider
 
 
@@ -187,8 +188,7 @@ def create_azure_credential_token_provider() -> Callable[[], str]:
 # 2. Environment variables (loaded via load_dotenv())
 # 3. Command line arguments (which override environment variables)
 class GraphitiLLMConfig(BaseModel):
-    """Configuration for the LLM client.
-
+    """ Configuration for the LLM client.
     Centralizes all LLM-specific configuration parameters including API keys and model selection.
     """
 
@@ -203,11 +203,13 @@ class GraphitiLLMConfig(BaseModel):
 
     @classmethod
     def from_env(cls) -> 'GraphitiLLMConfig':
-        """Create LLM configuration from environment variables."""
+        """ Create LLM configuration from environment variables.
+        """
+
         # Get model from environment, or use default if not set or empty
         model_env = os.environ.get('MODEL_NAME', '')
         model = model_env if model_env.strip() else DEFAULT_LLM_MODEL
-
+        # logger.info('LLM MODEL NAME - {}'.format(model))
         # Get small_model from environment, or use default if not set or empty
         small_model_env = os.environ.get('SMALL_MODEL_NAME', '')
         small_model = small_model_env if small_model_env.strip() else SMALL_LLM_MODEL
@@ -215,42 +217,35 @@ class GraphitiLLMConfig(BaseModel):
         azure_openai_endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT', None)
         azure_openai_api_version = os.environ.get('AZURE_OPENAI_API_VERSION', None)
         azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', None)
-        azure_openai_use_managed_identity = (
-            os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true'
-        )
-
+        azure_openai_use_managed_identity = (os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true')
         if azure_openai_endpoint is None:
-            # Setup for OpenAI API
-            # Log if empty model was provided
+            # Setup for OpenAI API ; Log if empty model was provided
             if model_env == '':
-                logger.debug(
-                    f'MODEL_NAME environment variable not set, using default: {DEFAULT_LLM_MODEL}'
-                )
+                logger.debug(f'MODEL_NAME environment variable not set, using default: {DEFAULT_LLM_MODEL}')
             elif not model_env.strip():
-                logger.warning(
-                    f'Empty MODEL_NAME environment variable, using default: {DEFAULT_LLM_MODEL}'
-                )
+                logger.warning(f'Empty MODEL_NAME environment variable, using default: {DEFAULT_LLM_MODEL}')
 
+            # 这会创建并返回一个 GraphitiLLMConfig 配置对象实例
             return cls(
                 api_key=os.environ.get('OPENAI_API_KEY'),
-                model=model,
-                small_model=small_model,
-                temperature=float(os.environ.get('LLM_TEMPERATURE', '0.0')),
+                model=model, small_model=small_model,
+                temperature=float(os.environ.get('LLM_TEMPERATURE', '1')),
             )
-        else:
-            # Setup for Azure OpenAI API
-            # Log if empty deployment name was provided
+            # 等价于如下代码
+            return GraphitiLLMConfig(  
+                api_key=os.environ.get('OPENAI_API_KEY'),  
+                model=model, small_model=small_model,  
+                temperature=float(os.environ.get('LLM_TEMPERATURE', '0.0')),  
+            )
+        else: # 没有用 azure server
+            # Setup for Azure OpenAI API ；  Log if empty deployment name was provided
             if azure_openai_deployment_name is None:
                 logger.error('AZURE_OPENAI_DEPLOYMENT_NAME environment variable not set')
-
                 raise ValueError('AZURE_OPENAI_DEPLOYMENT_NAME environment variable not set')
             if not azure_openai_use_managed_identity:
-                # api key
-                api_key = os.environ.get('OPENAI_API_KEY', None)
+                api_key = os.environ.get('OPENAI_API_KEY', None) # api key
             else:
-                # Managed identity
-                api_key = None
-
+                api_key = None # Managed identity
             return cls(
                 azure_openai_use_managed_identity=azure_openai_use_managed_identity,
                 azure_openai_endpoint=azure_openai_endpoint,
@@ -263,18 +258,14 @@ class GraphitiLLMConfig(BaseModel):
             )
 
     @classmethod
-    def from_cli_and_env(cls, args: argparse.Namespace) -> 'GraphitiLLMConfig':
+    def from_cli_and_env(cls, args: argparse.Namespace) -> 'GraphitiLLMConfig':   # 命令行参数覆盖环境变量
         """Create LLM configuration from CLI arguments, falling back to environment variables."""
-        # Start with environment-based config
-        config = cls.from_env()
-
-        # CLI arguments override environment variables when provided
-        if hasattr(args, 'model') and args.model:
-            # Only use CLI model if it's not empty
+        config = cls.from_env()  # Start with environment-based config 先读取环境变量中的参数
+        # CLI arguments override environment variables when provided 进而确认是否需要使用命令行中的参数覆盖环境变量参数
+        if hasattr(args, 'model') and args.model: 
             if args.model.strip():
                 config.model = args.model
             else:
-                # Log that empty model was provided and default is used
                 logger.warning(f'Empty model name provided, using default: {DEFAULT_LLM_MODEL}')
 
         if hasattr(args, 'small_model') and args.small_model:
@@ -289,15 +280,13 @@ class GraphitiLLMConfig(BaseModel):
         return config
 
     def create_client(self) -> LLMClient:
-        """Create an LLM client based on this configuration.
-
+        """ Create an LLM client based on this configuration.
         Returns:
             LLMClient instance
         """
-
+        # 没有 Azure OpenAI API Server
         if self.azure_openai_endpoint is not None:
-            # Azure OpenAI API setup
-            if self.azure_openai_use_managed_identity:
+            if self.azure_openai_use_managed_identity:  # Azure OpenAI API setup
                 # Use managed identity for authentication
                 token_provider = create_azure_credential_token_provider()
                 return AzureOpenAILLMClient(
@@ -314,8 +303,7 @@ class GraphitiLLMConfig(BaseModel):
                         temperature=self.temperature,
                     ),
                 )
-            elif self.api_key:
-                # Use API key for authentication
+            elif self.api_key: # Use API key for authentication
                 return AzureOpenAILLMClient(
                     azure_client=AsyncAzureOpenAI(
                         azure_endpoint=self.azure_openai_endpoint,
@@ -336,24 +324,30 @@ class GraphitiLLMConfig(BaseModel):
         if not self.api_key:
             raise ValueError('OPENAI_API_KEY must be set when using OpenAI API')
 
-        llm_client_config = LLMConfig(
-            api_key=self.api_key, model=self.model, small_model=self.small_model
-        )
+        # 开始封装即将创建  openai llm server Client 的 final config 信息
+        llm_client_config = LLMConfig(api_key=self.api_key, model=self.model, small_model=self.small_model)
+        # logger.info(f'LLM LLM_TEMPERATURE value is : {self.temperature}')
+        llm_client_config.temperature = self.temperature # Set temperature； 在实际创建 LLM Client 实例之前，进一步完善(更新) LLM config 信息，比如这里的温度信息
 
-        # Set temperature
-        llm_client_config.temperature = self.temperature
+        # # 自定义三方模型服务使用
+        # # 结构化输出方式: OpenAIGenericClient 使用标准的 response_format={'type': 'json_object'} 而不是 OpenAI 的 beta parse API
+        # # 兼容性更好: 对于自定义 OpenAI 兼容端点(如您的 http://192.168.1.6:5917),OpenAIGenericClient 的兼容性更好,因为它不依赖 OpenAI 特有的 beta 功能
+        # # 重试机制: OpenAIGenericClient 实现了自定义的重试逻辑,会在响应格式错误时将错误信息反馈给 LLM 重试
+        # from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient 
+        # return OpenAIGenericClient(config=llm_client_config)
 
+        # 调用 openai 模型时使用
         return OpenAIClient(config=llm_client_config)
 
 
 class GraphitiEmbedderConfig(BaseModel):
-    """Configuration for the embedder client.
-
-    Centralizes all embedding-related configuration parameters.
+    """ Configuration for the embedder client. Centralizes all embedding-related configuration parameters.
     """
 
     model: str = DEFAULT_EMBEDDER_MODEL
     api_key: str | None = None
+    base_url: str | None = None  # todo 新增，使用添加这个字段，使用自定义  embedding  model
+
     azure_openai_endpoint: str | None = None
     azure_openai_deployment_name: str | None = None
     azure_openai_api_version: str | None = None
@@ -361,42 +355,35 @@ class GraphitiEmbedderConfig(BaseModel):
 
     @classmethod
     def from_env(cls) -> 'GraphitiEmbedderConfig':
-        """Create embedder configuration from environment variables."""
+        """ Create embedder configuration from environment variables."""
 
-        # Get model from environment, or use default if not set or empty
-        model_env = os.environ.get('EMBEDDER_MODEL_NAME', '')
+        # Get model from environment, or use default if not set or empty  优先使用 EMBEDDING_MODEL_NAME,否则使用 EMBEDDER_MODEL_NAME
+        model_env = os.environ.get('EMBEDDING_MODEL_NAME') or os.environ.get('EMBEDDER_MODEL_NAME', '') 
         model = model_env if model_env.strip() else DEFAULT_EMBEDDER_MODEL
+        # logger.info('EMBEDDING MODEL NAME - {}'.format(model))
+        # 优先使用 EMBEDDING_API_KEY,否则使用 OPENAI_API_KEY
+        api_key = os.environ.get('EMBEDDING_API_KEY')  # or os.environ.get('OPENAI_API_KEY')
+        # logger.info('EMBEDDING MODEL KEY - {}'.format(api_key))
+        # 读取 EMBEDDING_BASE_URL  
+        base_url = os.environ.get('EMBEDDING_BASE_URL')  
+        # logger.info('EMBEDDING MODEL URL - {}'.format(base_url))
+        
 
+        # no azure server
         azure_openai_endpoint = os.environ.get('AZURE_OPENAI_EMBEDDING_ENDPOINT', None)
         azure_openai_api_version = os.environ.get('AZURE_OPENAI_EMBEDDING_API_VERSION', None)
-        azure_openai_deployment_name = os.environ.get(
-            'AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME', None
-        )
-        azure_openai_use_managed_identity = (
-            os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true'
-        )
+        azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME', None)
+        azure_openai_use_managed_identity = (os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true')
         if azure_openai_endpoint is not None:
-            # Setup for Azure OpenAI API
-            # Log if empty deployment name was provided
-            azure_openai_deployment_name = os.environ.get(
-                'AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME', None
-            )
+            # Setup for Azure OpenAI API ； Log if empty deployment name was provided
+            azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME', None)
             if azure_openai_deployment_name is None:
                 logger.error('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME environment variable not set')
-
-                raise ValueError(
-                    'AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME environment variable not set'
-                )
-
+                raise ValueError('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME environment variable not set')
             if not azure_openai_use_managed_identity:
-                # api key
-                api_key = os.environ.get('AZURE_OPENAI_EMBEDDING_API_KEY', None) or os.environ.get(
-                    'OPENAI_API_KEY', None
-                )
+                api_key = os.environ.get('AZURE_OPENAI_EMBEDDING_API_KEY', None) or os.environ.get('OPENAI_API_KEY', None) # api key
             else:
-                # Managed identity
-                api_key = None
-
+                api_key = None # Managed identity
             return cls(
                 azure_openai_use_managed_identity=azure_openai_use_managed_identity,
                 azure_openai_endpoint=azure_openai_endpoint,
@@ -405,9 +392,11 @@ class GraphitiEmbedderConfig(BaseModel):
                 azure_openai_deployment_name=azure_openai_deployment_name,
             )
         else:
+            # return cls(model=model, api_key=os.environ.get('OPENAI_API_KEY'),)
             return cls(
                 model=model,
-                api_key=os.environ.get('OPENAI_API_KEY'),
+                api_key=api_key,  # 更换为自己的 api key
+                base_url=base_url  # 添加这行  
             )
 
     def create_client(self) -> EmbedderClient | None:
@@ -419,20 +408,15 @@ class GraphitiEmbedderConfig(BaseModel):
                 return AzureOpenAIEmbedderClient(
                     azure_client=AsyncAzureOpenAI(
                         azure_endpoint=self.azure_openai_endpoint,
-                        azure_deployment=self.azure_openai_deployment_name,
-                        api_version=self.azure_openai_api_version,
-                        azure_ad_token_provider=token_provider,
+                        azure_deployment=self.azure_openai_deployment_name, api_version=self.azure_openai_api_version, azure_ad_token_provider=token_provider,
                     ),
                     model=self.model,
                 )
             elif self.api_key:
                 # Use API key for authentication
                 return AzureOpenAIEmbedderClient(
-                    azure_client=AsyncAzureOpenAI(
-                        azure_endpoint=self.azure_openai_endpoint,
-                        azure_deployment=self.azure_openai_deployment_name,
-                        api_version=self.azure_openai_api_version,
-                        api_key=self.api_key,
+                    azure_client=AsyncAzureOpenAI(azure_endpoint=self.azure_openai_endpoint,
+                        azure_deployment=self.azure_openai_deployment_name, api_version=self.azure_openai_api_version,api_key=self.api_key,
                     ),
                     model=self.model,
                 )
@@ -440,17 +424,23 @@ class GraphitiEmbedderConfig(BaseModel):
                 logger.error('OPENAI_API_KEY must be set when using Azure OpenAI API')
                 return None
         else:
-            # OpenAI API setup
-            if not self.api_key:
+            if not self.api_key: # OpenAI API setup
                 return None
 
-            embedder_config = OpenAIEmbedderConfig(api_key=self.api_key, embedding_model=self.model)
-
+            # 添加调试日志  验证单独配置的 embedding 已经生效
+            # logger.info(f"Embedder API Key: {self.api_key[:20] if self.api_key else 'None'}...")  
+            # logger.info(f"Embedder Base URL: {self.base_url}")  
+            # logger.info(f"Embedder Model: {self.model}") 
+            embedder_config = OpenAIEmbedderConfig(
+                api_key=self.api_key, embedding_model=self.model,
+                base_url=self.base_url  # 添加这行  使用自定义 Embedding Server Base URL
+            )
             return OpenAIEmbedder(config=embedder_config)
 
 
 class Neo4jConfig(BaseModel):
-    """Configuration for Neo4j database connection."""
+    """ Configuration for Neo4j database connection.
+    """
 
     uri: str = 'bolt://localhost:7687'
     user: str = 'neo4j'
@@ -467,9 +457,7 @@ class Neo4jConfig(BaseModel):
 
 
 class GraphitiConfig(BaseModel):
-    """Configuration for Graphiti client.
-
-    Centralizes all configuration parameters for the Graphiti client.
+    """ Configuration for Graphiti client. Centralizes all configuration parameters for the Graphiti client.
     """
 
     llm: GraphitiLLMConfig = Field(default_factory=GraphitiLLMConfig)
@@ -481,19 +469,17 @@ class GraphitiConfig(BaseModel):
 
     @classmethod
     def from_env(cls) -> 'GraphitiConfig':
-        """Create a configuration instance from environment variables."""
-        return cls(
-            llm=GraphitiLLMConfig.from_env(),
-            embedder=GraphitiEmbedderConfig.from_env(),
-            neo4j=Neo4jConfig.from_env(),
-        )
+        """ Create a configuration instance from environment variables.
+        """
+        return cls(llm=GraphitiLLMConfig.from_env(), embedder=GraphitiEmbedderConfig.from_env(), neo4j=Neo4jConfig.from_env(),)
 
     @classmethod
     def from_cli_and_env(cls, args: argparse.Namespace) -> 'GraphitiConfig':
-        """Create configuration from CLI arguments, falling back to environment variables."""
+        """ Create configuration from CLI arguments, falling back to environment variables.
+        """
+        
         # Start with environment configuration
         config = cls.from_env()
-
         # Apply CLI overrides
         if args.group_id:
             config.group_id = args.group_id
@@ -510,22 +496,20 @@ class GraphitiConfig(BaseModel):
 
 
 class MCPConfig(BaseModel):
-    """Configuration for MCP server."""
+    """ Configuration for MCP server.
+    """
 
     transport: str = 'sse'  # Default to SSE transport
 
     @classmethod
     def from_cli(cls, args: argparse.Namespace) -> 'MCPConfig':
-        """Create MCP configuration from CLI arguments."""
+        """ Create MCP configuration from CLI arguments.
+        """
         return cls(transport=args.transport)
 
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stderr,
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', stream=sys.stderr,)
 logger = logging.getLogger(__name__)
 
 # Create global config instance - will be properly initialized later
@@ -563,10 +547,7 @@ API keys are provided for any language model operations.
 """
 
 # MCP server instance
-mcp = FastMCP(
-    'Graphiti Agent Memory',
-    instructions=GRAPHITI_MCP_INSTRUCTIONS,
-)
+mcp = FastMCP('Graphiti Agent Memory',instructions=GRAPHITI_MCP_INSTRUCTIONS,)
 
 # Initialize Graphiti client
 graphiti_client: Graphiti | None = None
@@ -616,9 +597,7 @@ async def initialize_graphiti():
             logger.info('No LLM client configured - entity extraction will be limited')
 
         logger.info(f'Using group_id: {config.group_id}')
-        logger.info(
-            f'Custom entity extraction: {"enabled" if config.use_custom_entities else "disabled"}'
-        )
+        logger.info(f'Custom entity extraction: {"enabled" if config.use_custom_entities else "disabled"}')
         logger.info(f'Using concurrency limit: {SEMAPHORE_LIMIT}')
 
     except Exception as e:
@@ -627,21 +606,16 @@ async def initialize_graphiti():
 
 
 def format_fact_result(edge: EntityEdge) -> dict[str, Any]:
-    """Format an entity edge into a readable result.
-
-    Since EntityEdge is a Pydantic BaseModel, we can use its built-in serialization capabilities.
+    """ Format an entity edge into a readable result. Since EntityEdge is a Pydantic BaseModel, we can use its built-in serialization capabilities.
 
     Args:
         edge: The EntityEdge to format
-
     Returns:
         A dictionary representation of the edge with serialized dates and excluded embeddings
     """
     result = edge.model_dump(
         mode='json',
-        exclude={
-            'fact_embedding',
-        },
+        exclude={'fact_embedding',},
     )
     result.get('attributes', {}).pop('fact_embedding', None)
     return result
@@ -655,20 +629,17 @@ queue_workers: dict[str, bool] = {}
 
 
 async def process_episode_queue(group_id: str):
-    """Process episodes for a specific group_id sequentially.
-
-    This function runs as a long-lived task that processes episodes
-    from the queue one at a time.
+    """ Process episodes for a specific group_id sequentially.
+    This function runs as a long-lived task that processes episodes from the queue one at a time.
     """
-    global queue_workers
 
+    global queue_workers
     logger.info(f'Starting episode queue worker for group_id: {group_id}')
     queue_workers[group_id] = True
 
     try:
         while True:
-            # Get the next episode processing function from the queue
-            # This will wait if the queue is empty
+            # Get the next episode processing function from the queue； This will wait if the queue is empty
             process_func = await episode_queues[group_id].get()
 
             try:
@@ -697,7 +668,7 @@ async def add_memory(
     source_description: str = '',
     uuid: str | None = None,
 ) -> SuccessResponse | ErrorResponse:
-    """Add an episode to memory. This is the primary way to add information to the graph.
+    """ Add an episode to memory. This is the primary way to add information to the graph.
 
     This function returns immediately and processes the episode addition in the background.
     Episodes for the same group_id are processed sequentially to avoid race conditions.
@@ -705,10 +676,8 @@ async def add_memory(
     Args:
         name (str): Name of the episode
         episode_body (str): The content of the episode to persist to memory. When source='json', this must be a
-                           properly escaped JSON string, not a raw Python dictionary. The JSON data will be
-                           automatically processed to extract entities and relationships.
-        group_id (str, optional): A unique ID for this graph. If not provided, uses the default group_id from CLI
-                                 or a generated one.
+                           properly escaped JSON string, not a raw Python dictionary. The JSON data will be automatically processed to extract entities and relationships.
+        group_id (str, optional): A unique ID for this graph. If not provided, uses the default group_id from CLI or a generated one.
         source (str, optional): Source type, must be one of:
                                - 'text': For plain text content (default)
                                - 'json': For structured data
@@ -752,6 +721,7 @@ async def add_memory(
         - Entities will be created from appropriate JSON properties
         - Relationships between entities will be established based on the JSON structure
     """
+    
     global graphiti_client, episode_queues, queue_workers
 
     if graphiti_client is None:
@@ -772,8 +742,6 @@ async def add_memory(
         # The Graphiti client expects a str for group_id, not Optional[str]
         group_id_str = str(effective_group_id) if effective_group_id is not None else ''
 
-        # We've already checked that graphiti_client is not None above
-        # This assert statement helps type checkers understand that graphiti_client is defined
         assert graphiti_client is not None, 'graphiti_client should not be None here'
 
         # Use cast to help the type checker understand that graphiti_client is not None
@@ -785,8 +753,12 @@ async def add_memory(
                 logger.info(f"Processing queued episode '{name}' for group_id: {group_id_str}")
                 # Use all entity types if use_custom_entities is enabled, otherwise use empty dict
                 entity_types = ENTITY_TYPES if config.use_custom_entities else {}
+                edge_types = EDGE_TYPES if config.use_custom_entities else {}  # 新增  
+                # logger.info(f"======= edge_types '{edge_types}'")
+                edge_type_map = EDGE_TYPE_MAP if config.use_custom_entities else {}  # 新增  
+                # logger.info(f"======= edge_type_map '{edge_type_map}'")
 
-                await client.add_episode(
+                result = await client.add_episode(
                     name=name,
                     episode_body=episode_body,
                     source=source_type,
@@ -795,15 +767,22 @@ async def add_memory(
                     uuid=uuid,
                     reference_time=datetime.now(timezone.utc),
                     entity_types=entity_types,
+                    edge_types=edge_types,  # 新增  
+                    edge_type_map=edge_type_map,  # 新增  
                 )
-                logger.info(f"Episode '{name}' added successfully")
+                
+                logger.info(f"========================================= Extracted nodes")  
+                logger.info(f"Extracted nodes: {[(n.name, n.labels) for n in result.nodes]}")  
+                logger.info(f"Insight nodes: {[n.name for n in result.nodes if 'Insight' in n.labels]}")  
+                logger.info(f"Concept nodes: {[n.name for n in result.nodes if 'Concept' in n.labels]}")  
+                logger.info(f"========================================= Extracted edges")  
+                logger.info(f"Extracted edges: {[(e.name, e.fact) for e in result.edges]}")  
+                logger.info(f"Custom edge types: {[e.name for e in result.edges if e.name in edge_types]}")  
 
-                logger.info(f"Episode '{name}' processed successfully")
+                logger.info(f"Episode '{name}' added successfully and processed successfully")
             except Exception as e:
                 error_msg = str(e)
-                logger.error(
-                    f"Error processing episode '{name}' for group_id {group_id_str}: {error_msg}"
-                )
+                logger.error(f"Error processing episode '{name}' for group_id {group_id_str}: {error_msg}")
 
         # Initialize queue for this group_id if it doesn't exist
         if group_id_str not in episode_queues:
@@ -817,9 +796,7 @@ async def add_memory(
             asyncio.create_task(process_episode_queue(group_id_str))
 
         # Return immediately with a success message
-        return SuccessResponse(
-            message=f"Episode '{name}' queued for processing (position: {episode_queues[group_id_str].qsize()})"
-        )
+        return SuccessResponse(message=f"Episode '{name}' queued for processing (position: {episode_queues[group_id_str].qsize()})")
     except Exception as e:
         error_msg = str(e)
         logger.error(f'Error queuing episode task: {error_msg}')
@@ -834,7 +811,7 @@ async def search_memory_nodes(
     center_node_uuid: str | None = None,
     entity: str = '',  # cursor seems to break with None
 ) -> NodeSearchResponse | ErrorResponse:
-    """Search the graph memory for relevant node summaries.
+    """ Search the graph memory for relevant node summaries.
     These contain a summary of all of a node's relationships with other nodes.
 
     Note: entity is a single entity type to filter results (permitted: "Preference", "Procedure").
@@ -846,6 +823,7 @@ async def search_memory_nodes(
         center_node_uuid: Optional UUID of a node to center the search around
         entity: Optional single entity type to filter results (permitted: "Preference", "Procedure")
     """
+
     global graphiti_client
 
     if graphiti_client is None:
@@ -914,14 +892,14 @@ async def search_memory_facts(
     max_facts: int = 10,
     center_node_uuid: str | None = None,
 ) -> FactSearchResponse | ErrorResponse:
-    """Search the graph memory for relevant facts.
-
+    """ Search the graph memory for relevant facts.
     Args:
         query: The search query
         group_ids: Optional list of group IDs to filter results
         max_facts: Maximum number of facts to return (default: 10)
         center_node_uuid: Optional UUID of a node to center the search around
     """
+
     global graphiti_client
 
     if graphiti_client is None:
@@ -963,11 +941,11 @@ async def search_memory_facts(
 
 @mcp.tool()
 async def delete_entity_edge(uuid: str) -> SuccessResponse | ErrorResponse:
-    """Delete an entity edge from the graph memory.
-
+    """ Delete an entity edge from the graph memory.
     Args:
         uuid: UUID of the entity edge to delete
     """
+
     global graphiti_client
 
     if graphiti_client is None:
@@ -993,8 +971,7 @@ async def delete_entity_edge(uuid: str) -> SuccessResponse | ErrorResponse:
 
 @mcp.tool()
 async def delete_episode(uuid: str) -> SuccessResponse | ErrorResponse:
-    """Delete an episode from the graph memory.
-
+    """ Delete an episode from the graph memory.
     Args:
         uuid: UUID of the episode to delete
     """
@@ -1023,8 +1000,7 @@ async def delete_episode(uuid: str) -> SuccessResponse | ErrorResponse:
 
 @mcp.tool()
 async def get_entity_edge(uuid: str) -> dict[str, Any] | ErrorResponse:
-    """Get an entity edge from the graph memory by its UUID.
-
+    """ Get an entity edge from the graph memory by its UUID.
     Args:
         uuid: UUID of the entity edge to retrieve
     """
@@ -1163,13 +1139,10 @@ async def initialize_server() -> MCPConfig:
     """Parse CLI arguments and initialize the Graphiti server configuration."""
     global config
 
-    parser = argparse.ArgumentParser(
-        description='Run the Graphiti MCP server with optional LLM client'
-    )
+    parser = argparse.ArgumentParser(description='Run the Graphiti MCP server with optional LLM client')
     parser.add_argument(
         '--group-id',
-        help='Namespace for the graph. This is an arbitrary string used to organize related data. '
-        'If not provided, a random UUID will be generated.',
+        help='Namespace for the graph. This is an arbitrary string used to organize related data. If not provided, a random UUID will be generated.',
     )
     parser.add_argument(
         '--transport',
@@ -1231,7 +1204,8 @@ async def initialize_server() -> MCPConfig:
 
 
 async def run_mcp_server():
-    """Run the MCP server in the current event loop."""
+    """ Run the MCP server in the current event loop.
+    """
     # Initialize the server
     mcp_config = await initialize_server()
 
@@ -1240,14 +1214,13 @@ async def run_mcp_server():
     if mcp_config.transport == 'stdio':
         await mcp.run_stdio_async()
     elif mcp_config.transport == 'sse':
-        logger.info(
-            f'Running MCP server with SSE transport on {mcp.settings.host}:{mcp.settings.port}'
-        )
+        logger.info(f'Running MCP server with SSE transport on {mcp.settings.host}:{mcp.settings.port}')
         await mcp.run_sse_async()
 
 
 def main():
-    """Main function to run the Graphiti MCP server."""
+    """ Main function to run the Graphiti MCP server.
+    """
     try:
         # Run everything in a single event loop
         asyncio.run(run_mcp_server())

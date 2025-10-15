@@ -25,11 +25,8 @@ from .openai_base_client import DEFAULT_REASONING, DEFAULT_VERBOSITY, BaseOpenAI
 
 
 class OpenAIClient(BaseOpenAIClient):
-    """
-    OpenAIClient is a client class for interacting with OpenAI's language models.
-
-    This class extends the BaseOpenAIClient and provides OpenAI-specific implementation
-    for creating completions.
+    """ OpenAIClient is a client class for interacting with OpenAI's language models.
+    This class extends the BaseOpenAIClient and provides OpenAI-specific implementation for creating completions.
 
     Attributes:
         client (AsyncOpenAI): The OpenAI client used to interact with the API.
@@ -44,8 +41,7 @@ class OpenAIClient(BaseOpenAIClient):
         reasoning: str = DEFAULT_REASONING,
         verbosity: str = DEFAULT_VERBOSITY,
     ):
-        """
-        Initialize the OpenAIClient with the provided configuration, cache setting, and client.
+        """ Initialize the OpenAIClient with the provided configuration, cache setting, and client.
 
         Args:
             config (LLMConfig | None): The configuration for the LLM client, including API key, model, base URL, temperature, and max tokens.
@@ -72,7 +68,8 @@ class OpenAIClient(BaseOpenAIClient):
         reasoning: str | None = None,
         verbosity: str | None = None,
     ):
-        """Create a structured completion using OpenAI's beta parse API."""
+        """ Create a structured completion using OpenAI's beta parse API.
+        """
         response = await self.client.responses.parse(
             model=model,
             input=messages,  # type: ignore
@@ -95,7 +92,8 @@ class OpenAIClient(BaseOpenAIClient):
         reasoning: str | None = None,
         verbosity: str | None = None,
     ):
-        """Create a regular completion with JSON format."""
+        """ Create a regular completion with JSON format.
+        """
         return await self.client.chat.completions.create(
             model=model,
             messages=messages,

@@ -184,11 +184,16 @@ Indicate the classified entity type by providing its entity_type_id.
 
 {context['custom_prompt']}
 
-Guidelines:
-1. Extract significant entities, concepts, or actors mentioned in the conversation.
-2. Avoid creating nodes for relationships or actions.
-3. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
-4. Be as explicit as possible in your node names, using full names and avoiding abbreviations.
+**Important Guidelines**:  
+1. **Insight vs Concept distinction**:  
+   - Extract complete sentences or paragraphs as Insight entities  
+   - Extract terms, nouns, or noun phrases as Concept entities  
+   - Example: "Computer storage technology is a core component" → Insight  
+   - Example: "Computer storage technology" → Concept  
+2. Extract significant entities, concepts, or actors mentioned in the conversation.
+3. Avoid creating nodes for relationships or actions.
+4. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
+5. Be as explicit as possible in your node names, using full names and avoiding abbreviations.
 """
     return [
         Message(role='system', content=sys_prompt),
