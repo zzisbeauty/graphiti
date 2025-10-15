@@ -76,7 +76,6 @@ class Insight(BaseModel):
 
 class Concept(BaseModel):  
     """概念 - 知识网络中的术语节点  
-      
     Concept 代表一个独立的术语、名词或短语,是知识网络中可被引用的基本单元。  
     它通常是一个名词或名词短语,而不是完整的句子。  
       
