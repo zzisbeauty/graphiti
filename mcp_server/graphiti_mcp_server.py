@@ -431,9 +431,9 @@ class GraphitiEmbedderConfig(BaseModel):
                     model=self.model,
                 )
             elif self.api_key:
-                # Use API key for authentication
                 return AzureOpenAIEmbedderClient(
-                    azure_client=AsyncAzureOpenAI(azure_endpoint=self.azure_openai_endpoint,
+                    azure_client=AsyncAzureOpenAI(
+                        azure_endpoint=self.azure_openai_endpoint,
                         azure_deployment=self.azure_openai_deployment_name, api_version=self.azure_openai_api_version,api_key=self.api_key,
                     ),
                     model=self.model,
@@ -450,7 +450,8 @@ class GraphitiEmbedderConfig(BaseModel):
             # logger.info(f"Embedder Base URL: {self.base_url}")  
             # logger.info(f"Embedder Model: {self.model}") 
             embedder_config = OpenAIEmbedderConfig(
-                api_key=self.api_key, embedding_model=self.model,
+                api_key=self.api_key, 
+                embedding_model=self.model,
                 base_url=self.base_url  # 添加这行  使用自定义 Embedding Server Base URL
             )
 
