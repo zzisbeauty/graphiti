@@ -213,8 +213,12 @@ class GraphitiLLMConfig(BaseModel):
         # Get small_model from environment, or use default if not set or empty
         small_model_env = os.environ.get('SMALL_MODEL_NAME', '')
         small_model = small_model_env if small_model_env.strip() else SMALL_LLM_MODEL
-
-        if os.environ.get('AZURE_OPENAI_ENDPOINT', None) is None: # azure_openai_endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT', None)
+    
+        azure_openai_endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT', None)
+        azure_openai_api_version = os.environ.get('AZURE_OPENAI_API_VERSION', None)
+        azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', None)
+        azure_openai_use_managed_identity = (os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true')
+        if azure_openai_endpoint is None:
             # Setup for OpenAI API ; Log if empty model was provided
             if model_env == '':
                 logger.debug(f'MODEL_NAME environment variable not set, using default: {DEFAULT_LLM_MODEL}')
@@ -230,9 +234,6 @@ class GraphitiLLMConfig(BaseModel):
             # 等价于如下代码
             # return GraphitiLLMConfig(api_key=os.environ.get('OPENAI_API_KEY'), model=model, small_model=small_model, temperature=float(os.environ.get('LLM_TEMPERATURE', '0.0')),)
         else: # 没有用 azure server
-            azure_openai_api_version = os.environ.get('AZURE_OPENAI_API_VERSION', None)
-            azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', None)
-            azure_openai_use_managed_identity = (os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true')
             # Setup for Azure OpenAI API ；  Log if empty deployment name was provided
             if azure_openai_deployment_name is None:
                 logger.error('AZURE_OPENAI_DEPLOYMENT_NAME environment variable not set')
@@ -243,7 +244,7 @@ class GraphitiLLMConfig(BaseModel):
                 api_key = None # Managed identity
             return cls(
                 azure_openai_use_managed_identity=azure_openai_use_managed_identity,
-                azure_openai_endpoint=os.environ.get('AZURE_OPENAI_ENDPOINT', None),
+                azure_openai_endpoint=azure_openai_endpoint,
                 api_key=api_key,
                 azure_openai_api_version=azure_openai_api_version,
                 azure_openai_deployment_name=azure_openai_deployment_name,
@@ -389,10 +390,11 @@ class GraphitiEmbedderConfig(BaseModel):
         # logger.info('EMBEDDING MODEL URL - {}'.format(base_url))
         
         # no azure server
-        if os.environ.get('AZURE_OPENAI_EMBEDDING_ENDPOINT', None) is not None: # azure_openai_endpoint = os.environ.get('AZURE_OPENAI_EMBEDDING_ENDPOINT', None)
-            # azure_openai_api_version = os.environ.get('AZURE_OPENAI_EMBEDDING_API_VERSION', None)
-            azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME', None)
-            azure_openai_use_managed_identity = (os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true')
+        azure_openai_endpoint = os.environ.get('AZURE_OPENAI_EMBEDDING_ENDPOINT', None)
+        azure_openai_api_version = os.environ.get('AZURE_OPENAI_EMBEDDING_API_VERSION', None)
+        azure_openai_deployment_name = os.environ.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME', None)
+        azure_openai_use_managed_identity = (os.environ.get('AZURE_OPENAI_USE_MANAGED_IDENTITY', 'false').lower() == 'true')
+        if  azure_openai_endpoint is not None:
             if azure_openai_deployment_name is None:
                 logger.error('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME environment variable not set')
                 raise ValueError('AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME environment variable not set')
@@ -402,7 +404,7 @@ class GraphitiEmbedderConfig(BaseModel):
                 api_key = None # Managed identity
             return cls(
                 azure_openai_use_managed_identity=azure_openai_use_managed_identity,
-                azure_openai_endpoint=os.environ.get('AZURE_OPENAI_EMBEDDING_ENDPOINT', None)  # azure_openai_endpoint,
+                azure_openai_endpoint=azure_openai_endpoint,
                 api_key=api_key,
                 azure_openai_api_version=azure_openai_api_version,
                 azure_openai_deployment_name=azure_openai_deployment_name,
